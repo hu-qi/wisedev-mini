@@ -21,26 +21,70 @@ export function main() {
 
   program
     .command('init')
-    .description('Initialize pi-mini project and state')
+    .description('Initialize pi-mini project and agent state')
     .action(async () => {
       const orchestrator = new Orchestrator();
       await orchestrator.init();
+      const policy: AgentPolicy = {
+        decisionFormat: 'json_only',
+        maxToolCallsPerTurn: 1,
+        workspaceJail: true,
+        forbidNetwork: true,
+        forbidGitPush: true
+      };
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider('mock'),
+        model: 'mock',
+        maxTurns: 1,
+        policy
+      });
+      await runtime.init();
+      console.log(chalk.green('✅ Agent workspace initialized at .pi-mini/agent'));
     });
 
   program
     .command('status')
-    .description('Check the current project state and next recommended actions')
+    .description('Check the current project state and agent status')
     .action(async () => {
       const orchestrator = new Orchestrator();
       await orchestrator.status();
+
+      const policy: AgentPolicy = {
+        decisionFormat: 'json_only',
+        maxToolCallsPerTurn: 1,
+        workspaceJail: true,
+        forbidNetwork: true,
+        forbidGitPush: true
+      };
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider('mock'),
+        model: 'gpt-4o-mini',
+        maxTurns: 1,
+        policy
+      });
+      const info = await runtime.status();
+      const statePath = info.statePath;
+      const state = (await fs.pathExists(statePath)) ? await fs.readJson(statePath) : null;
+      console.log(chalk.blue('--- Agent State ---'));
+      if (state?.runs?.length) {
+        const last = state.runs[state.runs.length - 1];
+        console.log(`LastRun: ${last.runId} (${last.status})`);
+      } else {
+        console.log('LastRun: (none)');
+      }
     });
 
   program
     .command('run')
     .description('Run the pi-mini pipeline, integrating all missing stages sequentially')
-    .action(async () => {
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
+    .option('--model <name>', 'Model name', 'gpt-4o')
+    .option('--max-turns <number>', 'Max turns for this run loop', '5')
+    .action(async (opts: { provider?: string; model?: string; maxTurns?: string }) => {
       const orchestrator = new Orchestrator();
-      await orchestrator.run();
+      await orchestrator.run(opts);
     });
 
   program
@@ -88,14 +132,13 @@ export function main() {
       await stage.execute();
     });
 
-  const agent = program.command('agent').description('AI Agent capabilities (P0)');
-
-  agent
-    .command('init')
-    .description('Initialize agent workspace (.pi-mini/agent)')
-    .option('--provider <provider>', 'openai|mock')
-    .option('--model <model>', 'model name', 'gpt-4o-mini')
-    .action(async (opts: { provider?: string; model: string }) => {
+  program
+    .command('ask <input>')
+    .description('Run agent loop for a specific task or question')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
+    .option('--model <name>', 'Model name', 'gpt-4o')
+    .option('--max-turns <number>', 'Max turns for this run loop', '5')
+    .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
       const policy: AgentPolicy = {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,
@@ -107,46 +150,19 @@ export function main() {
         workspaceRoot: process.cwd(),
         provider: createProvider(opts.provider),
         model: opts.model,
-        maxTurns: 8,
+        maxTurns: Math.max(1, Number(opts.maxTurns) || 8),
         policy
       });
-      await runtime.init();
-      console.log(chalk.green('✅ Agent workspace initialized at .pi-mini/agent'));
-    });
-
-  agent
-    .command('status')
-    .description('Show agent state and last runs')
-    .action(async () => {
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
-      const runtime = new AgentRuntime({
-        workspaceRoot: process.cwd(),
-        provider: createProvider('mock'),
-        model: 'gpt-4o-mini',
-        maxTurns: 1,
-        policy
-      });
-      const info = await runtime.status();
-      const statePath = info.statePath;
-      const state = (await fs.pathExists(statePath)) ? await fs.readJson(statePath) : null;
-      console.log(chalk.blue('--- Agent State ---'));
-      console.log(`BaseDir: ${info.baseDir}`);
-      console.log(`State:   ${statePath}`);
-      if (state?.runs?.length) {
-        const last = state.runs[state.runs.length - 1];
-        console.log(`LastRun: ${last.runId} (${last.status})`);
+      const res = await runtime.ask(input);
+      if (res.ok) {
+        console.log(chalk.green(res.response));
       } else {
-        console.log('LastRun: (none)');
+        console.error(chalk.red(res.error));
+        process.exitCode = 1;
       }
     });
 
-  agent
+  program
     .command('resume [runId]')
     .description('Resume an unfinished agent run')
     .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
@@ -178,38 +194,7 @@ export function main() {
       }
     });
 
-  agent
-    .command('ask <input>')
-    .description('Run agent loop for a task')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
-    .option('--model <name>', 'Model name', 'gpt-4o')
-    .option('--max-turns <number>', 'Max turns for this run loop', '5')
-    .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
-      const runtime = new AgentRuntime({
-        workspaceRoot: process.cwd(),
-        provider: createProvider(opts.provider),
-        model: opts.model,
-        maxTurns: Math.max(1, Number(opts.maxTurns) || 8),
-        policy
-      });
-      const res = await runtime.ask(input);
-      if (res.ok) {
-        console.log(chalk.green(res.response));
-      } else {
-        console.error(chalk.red(res.error));
-        process.exitCode = 1;
-      }
-    });
-
-  const memoryCmd = agent.command('memory').description('Manage agent memory');
-
+  const memoryCmd = program.command('memory').description('Manage agent memory');
   memoryCmd
     .command('clear')
     .description('Clear agent memory (short/long)')
@@ -225,13 +210,11 @@ export function main() {
       }
     });
 
-  const skillCmd = agent.command('skill').description('Manage agent skills');
-
+  const skillCmd = program.command('skill').description('Manage agent skills');
   skillCmd
     .command('list')
     .description('List installed skills')
     .action(async () => {
-      const { AgentRuntime } = await import('./agent/runtime/agent-runtime');
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider('mock'),
@@ -262,7 +245,6 @@ export function main() {
     .command('install <dir>')
     .description('Install a skill from a local directory')
     .action(async (dir: string) => {
-      const { AgentRuntime } = await import('./agent/runtime/agent-runtime');
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider('mock'),

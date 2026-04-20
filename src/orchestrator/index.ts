@@ -26,7 +26,7 @@ export class Orchestrator {
     this.displayStatus(state);
   }
 
-  public async run(): Promise<void> {
+  public async run(opts?: { provider?: string; model?: string; maxTurns?: string }): Promise<void> {
     console.log(chalk.blue('Running pi-mini pipeline...'));
 
     // Check status first
@@ -37,13 +37,35 @@ export class Orchestrator {
 
     console.log(chalk.cyan(`Current inferred stage: ${currentStage}`));
 
-    // Depending on what is needed, we could run all missing stages or just run them sequentially.
-    // For a comprehensive run, let's execute stages that are missing their artifacts.
+    // Load Agent Runtime for stages that need reasoning
+    const { AgentRuntime } = await import('../agent/runtime/agent-runtime');
+    const { createProvider } = await import('../agent/providers');
+    const runtime = new AgentRuntime({
+      workspaceRoot: process.cwd(),
+      provider: createProvider(opts?.provider || 'openai'),
+      model: opts?.model || 'gpt-4o',
+      maxTurns: parseInt(opts?.maxTurns || '8', 10),
+      policy: {
+        decisionFormat: 'json_only',
+        maxToolCallsPerTurn: 1,
+        workspaceJail: true,
+        forbidNetwork: true,
+        forbidGitPush: true
+      }
+    });
+    await runtime.init();
+
+    // Depending on what is needed, we execute stages sequentially.
+    // Notice how we could pass control to Agent for reasoning stages.
     if (!artifacts.hasPrd) {
       console.log(chalk.yellow('\n--- Running Requirement Stage ---'));
       const { RequirementStage } = await import('../stages/requirement');
       const stage = new RequirementStage();
       await stage.execute();
+      
+      // Example of injecting Agent into the pipeline:
+      console.log(chalk.blue('Agent is reviewing requirements...'));
+      await runtime.ask('We just scaffolded requirement templates. Please review docs/requirement/01_prd.md and suggest if anything is missing based on standard project needs. DO NOT write code yet.');
     }
 
     if (!artifacts.hasDesign) {
@@ -51,6 +73,9 @@ export class Orchestrator {
       const { DesignStage } = await import('../stages/design');
       const stage = new DesignStage();
       await stage.execute();
+      
+      console.log(chalk.blue('Agent is reviewing design...'));
+      await runtime.ask('We just scaffolded design templates. Please review docs/design/06_solution_outline.md. Just acknowledge it.');
     }
 
     if (!artifacts.hasSourceCode) {
