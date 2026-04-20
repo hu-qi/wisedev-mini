@@ -6,8 +6,8 @@ import type { PromptBuilder } from '../prompt/prompt-builder';
 import type { ToolManager } from '../tools/tool-manager';
 import type { TraceWriter } from './trace-writer';
 import { parseAgentDecision } from './decision-parser';
-
 import type { ChatMessage } from '../contracts/llm';
+import type { SkillManifest } from '../contracts/skill';
 
 export type RunLoopInput = {
   userInput: string;
@@ -23,6 +23,7 @@ export type RunLoopInput = {
   toolManager: ToolManager;
   promptBuilder: PromptBuilder;
   memory: MemoryManager;
+  activeSkills?: SkillManifest[];
   trace: TraceWriter;
 };
 
@@ -43,6 +44,7 @@ export class RunLoop {
         state: input.state,
         memory: memorySnap,
         tools: toolSchemas,
+        activeSkills: input.activeSkills,
         history,
         run: {
           runId: input.state.runs[input.state.runs.length - 1]?.runId ?? '',

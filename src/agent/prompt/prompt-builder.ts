@@ -13,7 +13,7 @@ export class PromptBuilder {
     const stateText = jsonStringifySafe(input.state, 8_000);
     const memoryText = jsonStringifySafe(input.memory, 8_000);
 
-    const system = [
+    const systemParts = [
       '你是一个软件工程执行型智能体（Agent）。',
       '你必须严格按以下 JSON 协议输出决策，且只能输出 JSON，不能输出 Markdown、解释性文字或代码块。',
       '',
@@ -39,12 +39,34 @@ export class PromptBuilder {
       '',
       '记忆（short/long）：',
       memoryText
-    ].join('\n');
+    ];
 
-    const user = [
+    if (input.activeSkills && input.activeSkills.length > 0) {
+      const skillSystems = input.activeSkills
+        .map(s => s.prompts?.systemAppend)
+        .filter(Boolean) as string[];
+      if (skillSystems.length > 0) {
+        systemParts.push('', '--- 插件补充指令 (Skills) ---', ...skillSystems);
+      }
+    }
+
+    const system = systemParts.join('\n');
+
+    const userParts = [
       `第 ${input.run.turn}/${input.run.maxTurns} 轮执行。`,
       `用户请求/本轮观察：\n${input.userInput}`
-    ].join('\n');
+    ];
+
+    if (input.activeSkills && input.activeSkills.length > 0) {
+      const skillUsers = input.activeSkills
+        .map(s => s.prompts?.userAppend)
+        .filter(Boolean) as string[];
+      if (skillUsers.length > 0) {
+        userParts.push('', '--- 插件补充信息 ---', ...skillUsers);
+      }
+    }
+
+    const user = userParts.join('\n');
 
     const messages: ChatMessage[] = [
       { role: 'system', content: system }

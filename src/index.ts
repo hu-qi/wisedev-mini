@@ -149,7 +149,7 @@ export function main() {
   agent
     .command('resume [runId]')
     .description('Resume an unfinished agent run')
-    .option('--provider <name>', 'LLM Provider (openai, mock)', 'openai')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
     .option('--model <name>', 'Model name', 'gpt-4o')
     .option('--max-turns <number>', 'Max turns for this run loop', '5')
     .action(async (runId: string | undefined, options: { provider?: string; model: string; maxTurns: string }) => {
@@ -181,9 +181,9 @@ export function main() {
   agent
     .command('ask <input>')
     .description('Run agent loop for a task')
-    .option('--provider <provider>', 'openai|mock')
-    .option('--model <model>', 'model name', 'gpt-4o-mini')
-    .option('--max-turns <n>', 'max loop turns', '8')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
+    .option('--model <name>', 'Model name', 'gpt-4o')
+    .option('--max-turns <number>', 'Max turns for this run loop', '5')
     .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
       const policy: AgentPolicy = {
         decisionFormat: 'json_only',
@@ -205,6 +205,68 @@ export function main() {
       } else {
         console.error(chalk.red(res.error));
         process.exitCode = 1;
+      }
+    });
+
+  const skillCmd = agent.command('skill').description('Manage agent skills');
+
+  skillCmd
+    .command('list')
+    .description('List installed skills')
+    .action(async () => {
+      const { AgentRuntime } = await import('./agent/runtime/agent-runtime');
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider('mock'),
+        model: 'mock',
+        maxTurns: 1,
+        policy: {
+          decisionFormat: 'json_only',
+          maxToolCallsPerTurn: 1,
+          workspaceJail: true,
+          forbidNetwork: true,
+          forbidGitPush: true
+        }
+      });
+      await runtime.init();
+      const skills = runtime.getSkillManager().getActiveSkills();
+      if (skills.length === 0) {
+        console.log(chalk.yellow('No skills installed.'));
+      } else {
+        console.log(chalk.blue('--- Installed Skills ---'));
+        skills.forEach(s => {
+          console.log(`- ${chalk.green(s.name)} (v${s.version})`);
+          console.log(`  ${s.description}`);
+        });
+      }
+    });
+
+  skillCmd
+    .command('install <dir>')
+    .description('Install a skill from a local directory')
+    .action(async (dir: string) => {
+      const { AgentRuntime } = await import('./agent/runtime/agent-runtime');
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider('mock'),
+        model: 'mock',
+        maxTurns: 1,
+        policy: {
+          decisionFormat: 'json_only',
+          maxToolCallsPerTurn: 1,
+          workspaceJail: true,
+          forbidNetwork: true,
+          forbidGitPush: true
+        }
+      });
+      await runtime.init();
+      try {
+        const path = await import('path');
+        const sourcePath = path.resolve(process.cwd(), dir);
+        const manifest = await runtime.getSkillManager().installSkill(sourcePath);
+        console.log(chalk.green(`✅ Successfully installed skill: ${manifest.name} (v${manifest.version})`));
+      } catch (err) {
+        console.error(chalk.red('❌ Failed to install skill:'), (err as Error).message);
       }
     });
 

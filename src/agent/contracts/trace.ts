@@ -4,6 +4,7 @@ import type { ToolResult } from './tool';
 import type { ProjectState } from './state';
 import type { MemorySnapshot } from './memory';
 import type { ToolSchema, AgentPolicy } from './tool';
+import type { SkillManifest } from './skill';
 
 export type PromptBuildInput = {
   userInput: string;
@@ -11,6 +12,7 @@ export type PromptBuildInput = {
   state: ProjectState;
   memory: MemorySnapshot;
   tools: ToolSchema[];
+  activeSkills?: SkillManifest[];
   history?: ChatMessage[];
   run: {
     runId: string;

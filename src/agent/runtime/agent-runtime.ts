@@ -9,6 +9,7 @@ import { runShellTool } from '../tools/builtins/run-shell';
 import { PromptBuilder } from '../prompt/prompt-builder';
 import { MemoryManager } from '../memory/memory-manager';
 import { AgentStateManager } from '../state/state-manager';
+import { SkillManager } from '../skills/skill-manager';
 import { TraceWriter } from './trace-writer';
 import { TraceReader } from './trace-reader';
 import { RunLoop } from './run-loop';
@@ -27,6 +28,7 @@ export class AgentRuntime {
   private promptBuilder: PromptBuilder;
   private memory: MemoryManager;
   private stateManager: AgentStateManager;
+  private skillManager: SkillManager;
 
   public constructor(private opts: AgentRuntimeOptions) {
     this.baseDir = path.join(this.opts.workspaceRoot, '.pi-mini', 'agent');
@@ -34,15 +36,22 @@ export class AgentRuntime {
     this.promptBuilder = new PromptBuilder();
     this.memory = new MemoryManager(this.baseDir);
     this.stateManager = new AgentStateManager(this.baseDir, this.opts.workspaceRoot);
+    this.skillManager = new SkillManager(this.baseDir);
 
     this.toolManager.register(readFileTool);
     this.toolManager.register(writeFileTool);
     this.toolManager.register(runShellTool);
   }
 
+  public getSkillManager(): SkillManager {
+    return this.skillManager;
+  }
+
   public async init(): Promise<void> {
     await this.memory.init();
     await this.stateManager.load();
+    await this.skillManager.init();
+    await this.skillManager.loadAll();
   }
 
   public async status(): Promise<{ baseDir: string; statePath: string }> {
@@ -75,6 +84,7 @@ export class AgentRuntime {
         toolManager: this.toolManager,
         promptBuilder: this.promptBuilder,
         memory: this.memory,
+        activeSkills: this.skillManager.getActiveSkills(),
         trace
       });
 
@@ -174,6 +184,7 @@ export class AgentRuntime {
         toolManager: this.toolManager,
         promptBuilder: this.promptBuilder,
         memory: this.memory,
+        activeSkills: this.skillManager.getActiveSkills(),
         trace
       });
 

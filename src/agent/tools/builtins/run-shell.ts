@@ -39,6 +39,17 @@ export const runShellTool: Tool = {
         return { ok: false, name: 'run_shell', error: '命令不在允许列表中' };
       }
 
+      if (ctx.policy.forbidNetwork) {
+        const networkCommands = ['curl ', 'wget ', 'ping ', 'nc ', 'ssh '];
+        if (networkCommands.some(cmd => command.startsWith(cmd) || command.includes(` ${cmd}`))) {
+          return {
+            ok: false,
+            name: 'run_shell',
+            error: 'Policy violation: Network commands (curl, wget, ssh, etc.) are forbidden.'
+          };
+        }
+      }
+
       const res = await execFileAsync(command, cmdArgs, {
         cwd: ctx.workspaceRoot,
         timeout: 60_000,
