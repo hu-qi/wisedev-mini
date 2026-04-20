@@ -40,11 +40,13 @@ export class Orchestrator {
     // Load Agent Runtime for stages that need reasoning
     const { AgentRuntime } = await import('../agent/runtime/agent-runtime');
     const { createProvider } = await import('../agent/providers');
+    const { loadConfig } = await import('../config/config-manager');
+    const config = await loadConfig(process.cwd());
     const runtime = new AgentRuntime({
       workspaceRoot: process.cwd(),
-      provider: createProvider(opts?.provider || 'openai'),
-      model: opts?.model || 'gpt-4o',
-      maxTurns: parseInt(opts?.maxTurns || '8', 10),
+      provider: createProvider(opts?.provider ?? config.llm.provider),
+      model: opts?.model ?? config.llm.model,
+      maxTurns: parseInt(opts?.maxTurns ?? String(config.llm.maxTurns), 10),
       policy: {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,

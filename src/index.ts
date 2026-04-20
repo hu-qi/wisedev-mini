@@ -10,6 +10,7 @@ import { DeploymentStage } from './stages/deployment';
 import { createProvider } from './agent/providers';
 import { AgentRuntime } from './agent/runtime/agent-runtime';
 import type { AgentPolicy } from './agent/contracts/tool';
+import { loadConfig, saveConfig, getConfigPath } from './config/config-manager';
 
 export function main() {
   const program = new Command();
@@ -25,6 +26,8 @@ export function main() {
     .action(async () => {
       const orchestrator = new Orchestrator();
       await orchestrator.init();
+      const config = await loadConfig(process.cwd());
+      await saveConfig(process.cwd(), config);
       const policy: AgentPolicy = {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,
@@ -34,9 +37,9 @@ export function main() {
       };
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
-        provider: createProvider('mock'),
-        model: 'mock',
-        maxTurns: 1,
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
         policy
       });
       await runtime.init();
@@ -50,6 +53,7 @@ export function main() {
       const orchestrator = new Orchestrator();
       await orchestrator.status();
 
+      const config = await loadConfig(process.cwd());
       const policy: AgentPolicy = {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,
@@ -59,9 +63,9 @@ export function main() {
       };
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
-        provider: createProvider('mock'),
-        model: 'gpt-4o-mini',
-        maxTurns: 1,
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
         policy
       });
       const info = await runtime.status();
@@ -79,9 +83,9 @@ export function main() {
   program
     .command('run')
     .description('Run the pi-mini pipeline, integrating all missing stages sequentially')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
-    .option('--model <name>', 'Model name', 'gpt-4o')
-    .option('--max-turns <number>', 'Max turns for this run loop', '5')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
+    .option('--model <name>', 'Model name')
+    .option('--max-turns <number>', 'Max turns for this run loop')
     .action(async (opts: { provider?: string; model?: string; maxTurns?: string }) => {
       const orchestrator = new Orchestrator();
       await orchestrator.run(opts);
@@ -135,10 +139,11 @@ export function main() {
   program
     .command('ask <input>')
     .description('Run agent loop for a specific task or question')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
-    .option('--model <name>', 'Model name', 'gpt-4o')
-    .option('--max-turns <number>', 'Max turns for this run loop', '5')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
+    .option('--model <name>', 'Model name')
+    .option('--max-turns <number>', 'Max turns for this run loop')
     .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
+      const config = await loadConfig(process.cwd());
       const policy: AgentPolicy = {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,
@@ -148,9 +153,9 @@ export function main() {
       };
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
-        provider: createProvider(opts.provider),
-        model: opts.model,
-        maxTurns: Math.max(1, Number(opts.maxTurns) || 8),
+        provider: createProvider(opts.provider ?? config.llm.provider),
+        model: opts.model ?? config.llm.model,
+        maxTurns: Math.max(1, Number(opts.maxTurns ?? config.llm.maxTurns) || 8),
         policy
       });
       const res = await runtime.ask(input);
@@ -165,10 +170,11 @@ export function main() {
   program
     .command('resume [runId]')
     .description('Resume an unfinished agent run')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)', 'openai')
-    .option('--model <name>', 'Model name', 'gpt-4o')
-    .option('--max-turns <number>', 'Max turns for this run loop', '5')
-    .action(async (runId: string | undefined, options: { provider?: string; model: string; maxTurns: string }) => {
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
+    .option('--model <name>', 'Model name')
+    .option('--max-turns <number>', 'Max turns for this run loop')
+    .action(async (runId: string | undefined, options: { provider?: string; model?: string; maxTurns?: string }) => {
+      const config = await loadConfig(process.cwd());
       const policy: AgentPolicy = {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,
@@ -178,9 +184,9 @@ export function main() {
       };
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
-        provider: createProvider(options.provider),
-        model: options.model,
-        maxTurns: parseInt(options.maxTurns, 10),
+        provider: createProvider(options.provider ?? config.llm.provider),
+        model: options.model ?? config.llm.model,
+        maxTurns: parseInt(options.maxTurns ?? String(config.llm.maxTurns), 10),
         policy
       });
       console.log(chalk.blue(`Resuming agent run${runId ? ` ${runId}` : ''}...`));
@@ -215,11 +221,12 @@ export function main() {
     .command('list')
     .description('List installed skills')
     .action(async () => {
+      const config = await loadConfig(process.cwd());
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
-        provider: createProvider('mock'),
-        model: 'mock',
-        maxTurns: 1,
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
         policy: {
           decisionFormat: 'json_only',
           maxToolCallsPerTurn: 1,
@@ -245,11 +252,12 @@ export function main() {
     .command('install <dir>')
     .description('Install a skill from a local directory')
     .action(async (dir: string) => {
+      const config = await loadConfig(process.cwd());
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
-        provider: createProvider('mock'),
-        model: 'mock',
-        maxTurns: 1,
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
         policy: {
           decisionFormat: 'json_only',
           maxToolCallsPerTurn: 1,
@@ -267,6 +275,36 @@ export function main() {
       } catch (err) {
         console.error(chalk.red('❌ Failed to install skill:'), (err as Error).message);
       }
+    });
+
+  const configCmd = program.command('config').description('Manage pi-mini configuration');
+
+  configCmd.action(async () => {
+    const config = await loadConfig(process.cwd());
+    console.log(chalk.blue('--- pi-mini config ---'));
+    console.log(`File: ${getConfigPath(process.cwd())}`);
+    console.log(`Provider: ${config.llm.provider}`);
+    console.log(`Model:    ${config.llm.model}`);
+    console.log(`MaxTurns: ${config.llm.maxTurns}`);
+  });
+
+  configCmd
+    .command('set')
+    .description('Update pi-mini configuration')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
+    .option('--model <name>', 'Model name')
+    .option('--max-turns <number>', 'Max turns')
+    .action(async (opts: { provider?: string; model?: string; maxTurns?: string }) => {
+      const current = await loadConfig(process.cwd());
+      const next = {
+        llm: {
+          provider: opts.provider ?? current.llm.provider,
+          model: opts.model ?? current.llm.model,
+          maxTurns: opts.maxTurns ? Math.max(1, parseInt(opts.maxTurns, 10)) : current.llm.maxTurns
+        }
+      };
+      await saveConfig(process.cwd(), next);
+      console.log(chalk.green('✅ Config updated.'));
     });
 
   program.action(() => {
