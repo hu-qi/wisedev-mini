@@ -12,7 +12,8 @@ import { AgentRuntime } from './agent/runtime/agent-runtime';
 import type { AgentPolicy } from './agent/contracts/tool';
 import { loadConfig, saveConfig, getConfigPath } from './config/config-manager';
 
-export function main() {
+export async function main() {
+  const config = await loadConfig(process.cwd());
   const program = new Command();
 
   program
@@ -83,9 +84,9 @@ export function main() {
   program
     .command('run')
     .description('Run the pi-mini pipeline, integrating all missing stages sequentially')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
-    .option('--model <name>', 'Model name')
-    .option('--max-turns <number>', 'Max turns for this run loop')
+    .option('--provider <name>', `LLM Provider (openai, mock, ollama) [default: ${config.llm.provider}]`)
+    .option('--model <name>', `Model name [default: ${config.llm.model}]`)
+    .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (opts: { provider?: string; model?: string; maxTurns?: string }) => {
       const orchestrator = new Orchestrator();
       await orchestrator.run(opts);
@@ -139,9 +140,9 @@ export function main() {
   program
     .command('ask <input>')
     .description('Run agent loop for a specific task or question')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
-    .option('--model <name>', 'Model name')
-    .option('--max-turns <number>', 'Max turns for this run loop')
+    .option('--provider <name>', `LLM Provider (openai, mock, ollama) [default: ${config.llm.provider}]`)
+    .option('--model <name>', `Model name [default: ${config.llm.model}]`)
+    .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
       const config = await loadConfig(process.cwd());
       const policy: AgentPolicy = {
@@ -170,9 +171,9 @@ export function main() {
   program
     .command('resume [runId]')
     .description('Resume an unfinished agent run')
-    .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
-    .option('--model <name>', 'Model name')
-    .option('--max-turns <number>', 'Max turns for this run loop')
+    .option('--provider <name>', `LLM Provider (openai, mock, ollama) [default: ${config.llm.provider}]`)
+    .option('--model <name>', `Model name [default: ${config.llm.model}]`)
+    .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (runId: string | undefined, options: { provider?: string; model?: string; maxTurns?: string }) => {
       const config = await loadConfig(process.cwd());
       const policy: AgentPolicy = {
@@ -313,5 +314,5 @@ export function main() {
     console.log('Run `pi-mini --help` to see available commands.');
   });
 
-  program.parse(process.argv);
+    await program.parseAsync(process.argv);
 }
