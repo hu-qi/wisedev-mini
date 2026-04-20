@@ -99,6 +99,35 @@
 3. **阶段式代码生成**：
    在明确了 PRD 或 Design 后，Agent 可通过调用内部类（如 `Orchestrator` 或各 Stage 模块）直接介入流水线，批量生成或审查项目代码。
 
+## Agent 子系统（P0/P1/P2）
+
+`pi-mini` 额外提供一套可控的 Agent 子系统：模型只输出统一 JSON 决策协议，由 Runtime 负责工具执行、状态/记忆落盘与 Trace 回放。
+
+- 走查与演示文档：[agent-walkthrough.md](file:///Users/huqi/Develop/aigc/vibe-coding/atomcode/pi-mini/docs/agent/agent-walkthrough.md)
+
+### 常用命令
+
+```bash
+# 初始化 Agent 工作区（.pi-mini/agent）
+pi-mini agent init
+
+# 执行一次多轮任务（provider: openai/mock/ollama）
+pi-mini agent ask "读取 README.md 并总结" --provider mock --max-turns 2
+
+# 查看 Agent 状态
+pi-mini agent status
+
+# 中断恢复（读取 runs/<runId>.jsonl 回放）
+pi-mini agent resume
+
+# Skill 插件
+pi-mini agent skill list
+pi-mini agent skill install /path/to/skill-dir
+
+# 清空记忆
+pi-mini agent memory clear
+```
+
 ## 开发与调试 (Development)
 
 在本地开发 `pi-mini` 本身：
