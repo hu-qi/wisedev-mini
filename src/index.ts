@@ -87,7 +87,8 @@ export async function main() {
     .option('--provider <name>', `LLM Provider (openai, mock, ollama) [default: ${config.llm.provider}]`)
     .option('--model <name>', `Model name [default: ${config.llm.model}]`)
     .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
-    .action(async (opts: { provider?: string; model?: string; maxTurns?: string }) => {
+    .option('--mode <mode>', 'Run mode (auto, interactive) [default: auto]')
+    .action(async (opts: { provider?: string; model?: string; maxTurns?: string; mode?: string }) => {
       const orchestrator = new Orchestrator();
       await orchestrator.run(opts);
     });

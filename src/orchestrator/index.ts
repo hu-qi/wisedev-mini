@@ -26,7 +26,7 @@ export class Orchestrator {
     this.displayStatus(state);
   }
 
-  public async run(opts?: { provider?: string; model?: string; maxTurns?: string }): Promise<void> {
+  public async run(opts?: { provider?: string; model?: string; maxTurns?: string; mode?: string }): Promise<void> {
     console.log(chalk.blue('Running pi-mini pipeline...'));
 
     // Check status first
@@ -57,17 +57,18 @@ export class Orchestrator {
     });
     await runtime.init();
 
-    // Depending on what is needed, we execute stages sequentially.
-    // Notice how we could pass control to Agent for reasoning stages.
+    const isInteractive = opts?.mode === 'interactive';
+
     if (!artifacts.hasPrd) {
       console.log(chalk.yellow('\n--- Running Requirement Stage ---'));
       const { RequirementStage } = await import('../stages/requirement');
       const stage = new RequirementStage();
       await stage.execute();
       
-      // Example of injecting Agent into the pipeline:
-      console.log(chalk.blue('Agent is reviewing requirements...'));
-      await runtime.ask('We just scaffolded requirement templates. Please review docs/requirement/01_prd.md and suggest if anything is missing based on standard project needs. DO NOT write code yet.');
+      if (isInteractive) {
+        console.log(chalk.blue('Agent is reviewing requirements...'));
+        await runtime.ask('We just scaffolded requirement templates. Please review docs/requirement/01_prd.md and suggest if anything is missing based on standard project needs. DO NOT write code yet.');
+      }
     }
 
     if (!artifacts.hasDesign) {
@@ -76,8 +77,10 @@ export class Orchestrator {
       const stage = new DesignStage();
       await stage.execute();
       
-      console.log(chalk.blue('Agent is reviewing design...'));
-      await runtime.ask('We just scaffolded design templates. Please review docs/design/06_solution_outline.md. Just acknowledge it.');
+      if (isInteractive) {
+        console.log(chalk.blue('Agent is reviewing design...'));
+        await runtime.ask('We just scaffolded design templates. Please review docs/design/06_solution_outline.md. Just acknowledge it.');
+      }
     }
 
     if (!artifacts.hasSourceCode) {
