@@ -208,6 +208,23 @@ export function main() {
       }
     });
 
+  const memoryCmd = agent.command('memory').description('Manage agent memory');
+
+  memoryCmd
+    .command('clear')
+    .description('Clear agent memory (short/long)')
+    .action(async () => {
+      const fs = await import('fs-extra');
+      const path = await import('path');
+      const memoryDir = path.join(process.cwd(), '.pi-mini', 'agent', 'memory');
+      if (await fs.pathExists(memoryDir)) {
+        await fs.emptyDir(memoryDir);
+        console.log(chalk.green('✅ Memory cleared successfully.'));
+      } else {
+        console.log(chalk.yellow('Memory directory not found.'));
+      }
+    });
+
   const skillCmd = agent.command('skill').description('Manage agent skills');
 
   skillCmd

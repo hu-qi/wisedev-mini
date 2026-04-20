@@ -156,6 +156,9 @@ export class RunLoop {
         lastObservation = JSON.stringify(toolRes).slice(0, 8000);
         await input.memory.append('observation', lastObservation);
       }
+
+      // 每轮结束尝试压缩记忆
+      await input.memory.compact();
     }
 
     return { ok: false, error: '超过最大轮次仍未完成' };
