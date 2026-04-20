@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: 接口契约（OpenAPI）
+  description: 面向国央企/政企用户的接口契约示例（原型阶段可使用 mock，但字段口径与错误码需保持一致）。
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: 本地开发服务器
+paths:
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "up"

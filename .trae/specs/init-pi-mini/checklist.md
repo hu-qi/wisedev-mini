@@ -1,0 +1,6 @@
+- [x] `package.json` 和 CLI 入口配置正确，能通过 `pi-mini` 命令执行
+- [x] Orchestrator 能够正确识别当前目录下的产物，并推断出 `DeliveryState`
+- [x] Requirement 阶段能成功生成 `docs/01_prd.md`, `docs/02_work_items.json`, `docs/03_acceptance.md` 模板或内容
+- [x] Design 阶段能成功生成设计文档模板和 `openapi.yaml`
+- [x] Development 阶段能成功初始化 Vue 3 + TS 原型工程目录结构
+- [x] Deployment 阶段能生成 `.env.mock` 和部署指南

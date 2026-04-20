@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.pi-mini/
+test-demo/
+test-demo2/
+.DS_Store
+*.log
+.env.mock
