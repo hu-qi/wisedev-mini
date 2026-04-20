@@ -25,12 +25,11 @@ export class PromptBuilder {
       '约束：',
       '- 每轮最多调用 1 个工具。',
       '- 工具参数必须符合 schema。',
-      '- 不允许输出任何除 JSON 外的内容。'
-    ].join('\n');
-
-    const user = [
+      '- 不允许输出任何除 JSON 外的内容。',
+      '',
+      '--- 当前项目上下文 ---',
       `工作区：${input.workspaceRoot}`,
-      `Run：${input.run.runId}，第 ${input.run.turn}/${input.run.maxTurns} 轮`,
+      `当前执行 Run ID：${input.run.runId}`,
       '',
       '当前状态：',
       stateText,
@@ -39,16 +38,23 @@ export class PromptBuilder {
       toolsText,
       '',
       '记忆（short/long）：',
-      memoryText,
-      '',
-      '用户请求：',
-      input.userInput
+      memoryText
+    ].join('\n');
+
+    const user = [
+      `第 ${input.run.turn}/${input.run.maxTurns} 轮执行。`,
+      `用户请求/本轮观察：\n${input.userInput}`
     ].join('\n');
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: system },
-      { role: 'user', content: user }
+      { role: 'system', content: system }
     ];
+
+    if (input.history && input.history.length > 0) {
+      messages.push(...input.history);
+    }
+
+    messages.push({ role: 'user', content: user });
 
     return { system, messages };
   }

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import path from 'path';
-import type { LLMProvider } from '../contracts/llm';
+import type { LLMProvider, ChatMessage } from '../contracts/llm';
 import type { AgentPolicy } from '../contracts/tool';
 import { ToolManager } from '../tools/tool-manager';
 import { readFileTool } from '../tools/builtins/read-file';
@@ -10,6 +10,7 @@ import { PromptBuilder } from '../prompt/prompt-builder';
 import { MemoryManager } from '../memory/memory-manager';
 import { AgentStateManager } from '../state/state-manager';
 import { TraceWriter } from './trace-writer';
+import { TraceReader } from './trace-reader';
 import { RunLoop } from './run-loop';
 
 export type AgentRuntimeOptions = {
@@ -78,15 +79,113 @@ export class AgentRuntime {
       });
 
       const last = state.runs[state.runs.length - 1];
-      last.finishedAt = new Date().toISOString();
-      last.status = res.ok ? 'DONE' : 'ERROR';
-      await this.stateManager.save(state);
+      if (last) {
+        last.finishedAt = new Date().toISOString();
+        last.status = res.ok ? 'DONE' : 'ERROR';
+        await this.stateManager.syncState(state);
+        await this.stateManager.save(state);
+      }
 
-      return res.ok ? { ok: true, response: res.response } : { ok: false, error: res.error };
+      return res;
     } catch (e) {
       const last = state.runs[state.runs.length - 1];
-      last.finishedAt = new Date().toISOString();
-      last.status = 'ERROR';
+      if (last) {
+        last.finishedAt = new Date().toISOString();
+        last.status = 'ERROR';
+        await this.stateManager.syncState(state);
+        await this.stateManager.save(state);
+      }
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+
+  public async resume(targetRunId?: string): Promise<{ ok: true; response: string } | { ok: false; error: string }> {
+    await this.init();
+    const state = await this.stateManager.load();
+    let runId = targetRunId;
+
+    if (!runId) {
+      const unfinished = state.runs?.filter(r => r.status === 'RUNNING' || r.status === 'ERROR') || [];
+      if (unfinished.length === 0) {
+        return { ok: false, error: '未找到可恢复的运行任务（Run ID）。' };
+      }
+      runId = unfinished[unfinished.length - 1].runId;
+    }
+
+    const runInfo = state.runs?.find(r => r.runId === runId);
+    if (!runInfo) {
+      return { ok: false, error: `在状态中未找到 Run ID: ${runId}` };
+    }
+
+    const reader = new TraceReader(this.opts.workspaceRoot);
+    const events = await reader.readTrace(runId!);
+    
+    if (events.length === 0) {
+      return { ok: false, error: `Trace 文件为空或不存在: ${runId}` };
+    }
+
+    const userInput = state.currentGoal || '继续执行任务';
+    const history: ChatMessage[] = [];
+    let startTurn = 1;
+    let lastObservation = '';
+
+    // Reconstruct history
+    for (const ev of events) {
+      if (ev.type === 'prompt_input') {
+        const promptData = ev.data;
+        const msgContent = [
+          `第 ${promptData.run.turn}/${promptData.run.maxTurns} 轮执行。`,
+          `用户请求/本轮观察：\n${promptData.userInput}`
+        ].join('\n');
+        history.push({ role: 'user', content: msgContent });
+        startTurn = ev.turn;
+      } else if (ev.type === 'llm_response') {
+        history.push({ role: 'assistant', content: ev.data.content });
+      } else if (ev.type === 'tool_result') {
+        lastObservation = JSON.stringify(ev.data).slice(0, 8000);
+      }
+    }
+
+    // Since we are resuming from the end of the trace, we increment turn.
+    // If the last event was a tool_result or error, we proceed to startTurn + 1.
+    // Wait, if the trace ended at llm_response, maybe it crashed parsing.
+    // Generally, startTurn = last recorded turn + 1
+    startTurn += 1;
+
+    runInfo.status = 'RUNNING';
+    await this.stateManager.save(state);
+
+    const trace = new TraceWriter(this.baseDir, runId!);
+    await trace.init();
+
+    const loop = new RunLoop();
+    try {
+      const res = await loop.run({
+        userInput,
+        workspaceRoot: this.opts.workspaceRoot,
+        model: this.opts.model,
+        maxTurns: this.opts.maxTurns,
+        startTurn,
+        history,
+        lastObservation,
+        provider: this.opts.provider,
+        policy: this.opts.policy,
+        state,
+        toolManager: this.toolManager,
+        promptBuilder: this.promptBuilder,
+        memory: this.memory,
+        trace
+      });
+
+      runInfo.finishedAt = new Date().toISOString();
+      runInfo.status = res.ok ? 'DONE' : 'ERROR';
+      await this.stateManager.syncState(state);
+      await this.stateManager.save(state);
+      return res;
+    } catch (e) {
+      runInfo.finishedAt = new Date().toISOString();
+      runInfo.status = 'ERROR';
+      await this.stateManager.syncState(state);
       await this.stateManager.save(state);
       return { ok: false, error: (e as Error).message };
     }

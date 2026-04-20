@@ -7,11 +7,16 @@ import type { ToolManager } from '../tools/tool-manager';
 import type { TraceWriter } from './trace-writer';
 import { parseAgentDecision } from './decision-parser';
 
+import type { ChatMessage } from '../contracts/llm';
+
 export type RunLoopInput = {
   userInput: string;
   workspaceRoot: string;
   model: string;
   maxTurns: number;
+  startTurn?: number;
+  history?: ChatMessage[];
+  lastObservation?: string;
   provider: LLMProvider;
   policy: AgentPolicy;
   state: ProjectState;
@@ -25,8 +30,11 @@ export class RunLoop {
   public async run(input: RunLoopInput): Promise<{ ok: true; response: string } | { ok: false; error: string }> {
     const toolSchemas = input.toolManager.listSchemas();
 
-    let lastObservation = '';
-    for (let turn = 1; turn <= input.maxTurns; turn += 1) {
+    let lastObservation = input.lastObservation ?? '';
+    let history = input.history ? [...input.history] : [];
+    const startTurn = input.startTurn ?? 1;
+
+    for (let turn = startTurn; turn <= input.maxTurns; turn += 1) {
       const memorySnap = await input.memory.snapshot();
 
       const promptInput = {
@@ -35,6 +43,7 @@ export class RunLoop {
         state: input.state,
         memory: memorySnap,
         tools: toolSchemas,
+        history,
         run: {
           runId: input.state.runs[input.state.runs.length - 1]?.runId ?? '',
           turn,
@@ -58,6 +67,11 @@ export class RunLoop {
         temperature: 0.2,
         timeoutMs: 60_000
       });
+
+      // 追加当前轮的交互到 history 中，供下一轮使用
+      const userMsg = built.messages[built.messages.length - 1];
+      history.push(userMsg);
+      history.push({ role: 'assistant', content: llmRes.content });
 
       await input.trace.append({
         ts: new Date().toISOString(),

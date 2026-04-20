@@ -147,6 +147,38 @@ export function main() {
     });
 
   agent
+    .command('resume [runId]')
+    .description('Resume an unfinished agent run')
+    .option('--provider <name>', 'LLM Provider (openai, mock)', 'openai')
+    .option('--model <name>', 'Model name', 'gpt-4o')
+    .option('--max-turns <number>', 'Max turns for this run loop', '5')
+    .action(async (runId: string | undefined, options: { provider?: string; model: string; maxTurns: string }) => {
+      const policy: AgentPolicy = {
+        decisionFormat: 'json_only',
+        maxToolCallsPerTurn: 1,
+        workspaceJail: true,
+        forbidNetwork: true,
+        forbidGitPush: true
+      };
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider(options.provider),
+        model: options.model,
+        maxTurns: parseInt(options.maxTurns, 10),
+        policy
+      });
+      console.log(chalk.blue(`Resuming agent run${runId ? ` ${runId}` : ''}...`));
+      const res = await runtime.resume(runId);
+      if (res.ok) {
+        console.log(chalk.green('✅ Agent finished successfully.'));
+        console.log(res.response);
+      } else {
+        console.log(chalk.red('❌ Agent failed or stopped:'));
+        console.log(res.error);
+      }
+    });
+
+  agent
     .command('ask <input>')
     .description('Run agent loop for a task')
     .option('--provider <provider>', 'openai|mock')

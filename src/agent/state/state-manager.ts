@@ -41,5 +41,37 @@ export class AgentStateManager {
     await fs.ensureDir(path.dirname(this.statePath));
     await fs.writeJson(this.statePath, state, { spaces: 2 });
   }
+
+  public async syncState(state: ProjectState): Promise<void> {
+    const checkFile = async (subPath: string) => {
+      const fullPath = path.join(this.workspaceRoot, subPath);
+      return (await fs.pathExists(fullPath)) ? fullPath : null;
+    };
+
+    const prdPath = await checkFile('docs/requirement/01_prd.md');
+    if (prdPath) state.artifacts.PRD = { path: prdPath, updatedAt: new Date().toISOString() };
+
+    const designPath = await checkFile('docs/design/06_solution_outline.md');
+    if (designPath) state.artifacts.DESIGN = { path: designPath, updatedAt: new Date().toISOString() };
+
+    const packageJsonPath = await checkFile('package.json');
+    if (packageJsonPath) state.artifacts.SOURCE_CODE = { path: packageJsonPath, updatedAt: new Date().toISOString() };
+
+    const testPath = await checkFile('tests/smoke.spec.ts');
+    if (testPath) state.artifacts.TESTS = { path: testPath, updatedAt: new Date().toISOString() };
+
+    // Update stage based on artifacts
+    if (state.artifacts.TESTS) {
+      state.stage = 'DEPLOYMENT';
+    } else if (state.artifacts.SOURCE_CODE) {
+      state.stage = 'TESTING';
+    } else if (state.artifacts.DESIGN) {
+      state.stage = 'DEVELOPMENT';
+    } else if (state.artifacts.PRD) {
+      state.stage = 'DESIGN';
+    } else {
+      state.stage = 'REQUIREMENT';
+    }
+  }
 }
 

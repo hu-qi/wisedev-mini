@@ -1,5 +1,5 @@
 import type { AgentDecision } from './agent-decision';
-import type { ChatResponse } from './llm';
+import type { ChatMessage, ChatResponse } from './llm';
 import type { ToolResult } from './tool';
 import type { ProjectState } from './state';
 import type { MemorySnapshot } from './memory';
@@ -11,6 +11,7 @@ export type PromptBuildInput = {
   state: ProjectState;
   memory: MemorySnapshot;
   tools: ToolSchema[];
+  history?: ChatMessage[];
   run: {
     runId: string;
     turn: number;
