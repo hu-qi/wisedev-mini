@@ -60,7 +60,7 @@ export class AgentRuntime {
     return { baseDir: this.baseDir, statePath: path.join(this.baseDir, 'state.json') };
   }
 
-  public async ask(userInput: string): Promise<{ ok: true; response: string } | { ok: false; error: string }> {
+  public async ask(userInput: string, opts?: { silent?: boolean }): Promise<{ ok: true; response: string } | { ok: false; error: string }> {
     await this.init();
 
     const state = await this.stateManager.load();
@@ -87,7 +87,8 @@ export class AgentRuntime {
         promptBuilder: this.promptBuilder,
         memory: this.memory,
         activeSkills: this.skillManager.getActiveSkills(),
-        trace
+        trace,
+        silent: opts?.silent
       });
 
       const last = state.runs[state.runs.length - 1];
@@ -111,7 +112,7 @@ export class AgentRuntime {
     }
   }
 
-  public async resume(targetRunId?: string): Promise<{ ok: true; response: string } | { ok: false; error: string }> {
+  public async resume(targetRunId?: string, opts?: { silent?: boolean }): Promise<{ ok: true; response: string } | { ok: false; error: string }> {
     await this.init();
     const state = await this.stateManager.load();
     let runId = targetRunId;
@@ -187,7 +188,8 @@ export class AgentRuntime {
         promptBuilder: this.promptBuilder,
         memory: this.memory,
         activeSkills: this.skillManager.getActiveSkills(),
-        trace
+        trace,
+        silent: opts?.silent
       });
 
       runInfo.finishedAt = new Date().toISOString();

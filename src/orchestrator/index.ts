@@ -2,17 +2,18 @@ import chalk from 'chalk';
 import { StateManager } from './state';
 import { ArtifactChecker } from './checker';
 import { DeliveryState, DeliveryStage, ArtifactStatus } from './types';
+import { Logger } from '../utils/logger';
 
 export class Orchestrator {
   public async init(): Promise<void> {
-    console.log(chalk.blue('Initializing pi-mini project...'));
+    Logger.info(chalk.blue('Initializing pi-mini project...'));
     const state = await StateManager.load();
     await StateManager.save(state);
-    console.log(chalk.green('✅ Project initialized successfully.'));
+    Logger.success('✅ Project initialized successfully.');
   }
 
   public async status(): Promise<void> {
-    console.log(chalk.blue('Checking project status...'));
+    Logger.info(chalk.blue('Checking project status...'));
 
     const state = await StateManager.load();
     const checker = new ArtifactChecker();
@@ -23,11 +24,16 @@ export class Orchestrator {
 
     await StateManager.save(state);
 
+    if (Logger.isJson) {
+      Logger.printJson({ state: state.currentStage, artifacts });
+      return;
+    }
+
     this.displayStatus(state);
   }
 
   public async run(opts?: { provider?: string; model?: string; maxTurns?: string; mode?: string }): Promise<void> {
-    console.log(chalk.blue('Running pi-mini pipeline...'));
+    Logger.info(chalk.blue('Running pi-mini pipeline...'));
 
     // Check status first
     const state = await StateManager.load();
@@ -35,7 +41,7 @@ export class Orchestrator {
     const artifacts = await checker.check();
     const currentStage = this.inferStage(artifacts);
 
-    console.log(chalk.cyan(`Current inferred stage: ${currentStage}`));
+    Logger.info(chalk.cyan(`Current inferred stage: ${currentStage}`));
 
     // Load Agent Runtime for stages that need reasoning
     const { AgentRuntime } = await import('../agent/runtime/agent-runtime');
@@ -60,50 +66,50 @@ export class Orchestrator {
     const isInteractive = opts?.mode === 'interactive';
 
     if (!artifacts.hasPrd) {
-      console.log(chalk.yellow('\n--- Running Requirement Stage ---'));
+      Logger.info(chalk.yellow('\n--- Running Requirement Stage ---'));
       const { RequirementStage } = await import('../stages/requirement');
       const stage = new RequirementStage();
       await stage.execute();
       
       if (isInteractive) {
-        console.log(chalk.blue('Agent is reviewing requirements...'));
-        await runtime.ask('We just scaffolded requirement templates. Please review docs/requirement/01_prd.md and suggest if anything is missing based on standard project needs. DO NOT write code yet.');
+        Logger.info(chalk.blue('Agent is reviewing requirements...'));
+        await runtime.ask('We just scaffolded requirement templates. Please review docs/requirement/01_prd.md and suggest if anything is missing based on standard project needs. DO NOT write code yet.', { silent: Logger.isJson || Logger.isQuiet });
       }
     }
 
     if (!artifacts.hasDesign) {
-      console.log(chalk.yellow('\n--- Running Design Stage ---'));
+      Logger.info(chalk.yellow('\n--- Running Design Stage ---'));
       const { DesignStage } = await import('../stages/design');
       const stage = new DesignStage();
       await stage.execute();
       
       if (isInteractive) {
-        console.log(chalk.blue('Agent is reviewing design...'));
-        await runtime.ask('We just scaffolded design templates. Please review docs/design/06_solution_outline.md. Just acknowledge it.');
+        Logger.info(chalk.blue('Agent is reviewing design...'));
+        await runtime.ask('We just scaffolded design templates. Please review docs/design/06_solution_outline.md. Just acknowledge it.', { silent: Logger.isJson || Logger.isQuiet });
       }
     }
 
     if (!artifacts.hasSourceCode) {
-      console.log(chalk.yellow('\n--- Running Development Stage ---'));
+      Logger.info(chalk.yellow('\n--- Running Development Stage ---'));
       const { DevelopmentStage } = await import('../stages/development');
       const stage = new DevelopmentStage();
       await stage.execute();
     }
 
     if (!artifacts.hasTests) {
-      console.log(chalk.yellow('\n--- Running Testing Stage ---'));
+      Logger.info(chalk.yellow('\n--- Running Testing Stage ---'));
       const { TestingStage } = await import('../stages/testing');
       const stage = new TestingStage();
       await stage.execute();
     }
 
     // Always run deployment at the end to generate deployment docs / check scripts
-    console.log(chalk.yellow('\n--- Running Deployment Stage ---'));
+    Logger.info(chalk.yellow('\n--- Running Deployment Stage ---'));
     const { DeploymentStage } = await import('../stages/deployment');
     const stage = new DeploymentStage();
     await stage.execute();
 
-    console.log(chalk.green('\n✅ Pipeline execution completed.'));
+    Logger.success('\n✅ Pipeline execution completed.');
     await this.status(); // Show final status
   }
 

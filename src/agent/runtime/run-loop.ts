@@ -27,6 +27,7 @@ export type RunLoopInput = {
   memory: MemoryManager;
   activeSkills?: SkillManifest[];
   trace: TraceWriter;
+  silent?: boolean;
 };
 
 export class RunLoop {
@@ -37,8 +38,12 @@ export class RunLoop {
     let history = input.history ? [...input.history] : [];
     const startTurn = input.startTurn ?? 1;
 
-    console.log(chalk.blue(`\n[Agent Run] Starting loop (max ${input.maxTurns} turns)`));
-    const spinner = ora('Initializing Agent...').start();
+    if (!input.silent) {
+      console.log(chalk.blue(`\n[Agent Run] Starting loop (max ${input.maxTurns} turns)`));
+    }
+    const spinner = input.silent
+      ? { start: () => spinner, succeed: () => spinner, fail: () => spinner, warn: () => spinner, text: '' } as any
+      : ora('Initializing Agent...').start();
 
     for (let turn = startTurn; turn <= input.maxTurns; turn += 1) {
       spinner.text = `Turn ${turn}/${input.maxTurns} - Building prompt & context...`;

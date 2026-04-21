@@ -11,6 +11,7 @@ import { createProvider } from './agent/providers';
 import { AgentRuntime } from './agent/runtime/agent-runtime';
 import type { AgentPolicy } from './agent/contracts/tool';
 import { loadConfig, saveConfig, getConfigPath } from './config/config-manager';
+import { Logger } from './utils/logger';
 
 export async function main() {
   const config = await loadConfig(process.cwd());
@@ -32,7 +33,13 @@ export async function main() {
   program
     .name('pi-mini')
     .description('A mini CLI tool')
-    .version('1.0.0');
+    .version('1.0.0')
+    .option('--json', 'Output in JSON format')
+    .option('-q, --quiet', 'Quiet mode (suppress non-error output)')
+    .option('-v, --verbose', 'Verbose mode')
+    .hook('preAction', (thisCommand) => {
+      Logger.setup(thisCommand.opts());
+    });
 
   program
     .command('init')
@@ -51,7 +58,10 @@ export async function main() {
         policy
       });
       await runtime.init();
-      console.log(chalk.green('✅ Agent workspace initialized at .pi-mini/agent'));
+      Logger.success('✅ Agent workspace initialized at .pi-mini/agent');
+      if (Logger.isJson) {
+        Logger.printJson({ ok: true, message: 'Agent workspace initialized' });
+      }
     });
 
   program
@@ -73,12 +83,21 @@ export async function main() {
       const info = await runtime.status();
       const statePath = info.statePath;
       const state = (await fs.pathExists(statePath)) ? await fs.readJson(statePath) : null;
-      console.log(chalk.blue('--- Agent State ---'));
+      
+      let lastRun = null;
       if (state?.runs?.length) {
-        const last = state.runs[state.runs.length - 1];
-        console.log(`LastRun: ${last.runId} (${last.status})`);
+        lastRun = state.runs[state.runs.length - 1];
+      }
+
+      if (Logger.isJson) {
+        Logger.printJson({ lastRun });
       } else {
-        console.log('LastRun: (none)');
+        Logger.info(chalk.blue('--- Agent State ---'));
+        if (lastRun) {
+          Logger.info(`LastRun: ${lastRun.runId} (${lastRun.status})`);
+        } else {
+          Logger.info('LastRun: (none)');
+        }
       }
     });
 
@@ -155,11 +174,13 @@ export async function main() {
         maxTurns: Math.max(1, Number(opts.maxTurns ?? config.llm.maxTurns) || 8),
         policy
       });
-      const res = await runtime.ask(input);
+      const res = await runtime.ask(input, { silent: Logger.isJson || Logger.isQuiet });
       if (res.ok) {
-        console.log(chalk.green(res.response));
+        Logger.success(res.response);
+        if (Logger.isJson) Logger.printJson(res);
       } else {
-        console.error(chalk.red(res.error));
+        Logger.error(res.error);
+        if (Logger.isJson) Logger.printJson(res);
         process.exitCode = 1;
       }
     });
@@ -180,14 +201,17 @@ export async function main() {
         maxTurns: parseInt(options.maxTurns ?? String(config.llm.maxTurns), 10),
         policy
       });
-      console.log(chalk.blue(`Resuming agent run${runId ? ` ${runId}` : ''}...`));
-      const res = await runtime.resume(runId);
+      Logger.info(chalk.blue(`Resuming agent run${runId ? ` ${runId}` : ''}...`));
+      const res = await runtime.resume(runId, { silent: Logger.isJson || Logger.isQuiet });
       if (res.ok) {
-        console.log(chalk.green('✅ Agent finished successfully.'));
-        console.log(res.response);
+        Logger.success('✅ Agent finished successfully.');
+        Logger.info(res.response);
+        if (Logger.isJson) Logger.printJson(res);
       } else {
-        console.log(chalk.red('❌ Agent failed or stopped:'));
-        console.log(res.error);
+        Logger.error('❌ Agent failed or stopped:');
+        Logger.error(res.error);
+        if (Logger.isJson) Logger.printJson(res);
+        process.exitCode = 1;
       }
     });
 
@@ -404,19 +428,35 @@ export async function main() {
     .description('Check environment and LLM connectivity')
     .action(async () => {
       const cfg = await loadConfig(process.cwd());
-      console.log(chalk.blue('--- pi-mini doctor ---'));
-      console.log(`Config:   ${getConfigPath(process.cwd())}`);
-      console.log(`Provider: ${cfg.llm.provider}`);
-      console.log(`Model:    ${cfg.llm.model}`);
-      console.log(`MaxTurns: ${cfg.llm.maxTurns}`);
+      
+      const result: any = {
+        config: getConfigPath(process.cwd()),
+        provider: cfg.llm.provider,
+        model: cfg.llm.model,
+        maxTurns: cfg.llm.maxTurns,
+        env: {},
+        connectivity: { ok: false, message: '' }
+      };
+
+      Logger.info(chalk.blue('--- pi-mini doctor ---'));
+      Logger.info(`Config:   ${result.config}`);
+      Logger.info(`Provider: ${result.provider}`);
+      Logger.info(`Model:    ${result.model}`);
+      Logger.info(`MaxTurns: ${result.maxTurns}`);
 
       if (cfg.llm.provider === 'openai') {
         const apiKey = process.env.OPENAI_API_KEY ?? '';
         const baseUrl = (process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1').replace(/\/+$/, '');
-        console.log(`OPENAI_BASE_URL: ${baseUrl}`);
-        console.log(`OPENAI_API_KEY:  ${apiKey ? maskSecret(apiKey) : '(missing)'}`);
+        result.env.OPENAI_BASE_URL = baseUrl;
+        result.env.OPENAI_API_KEY = apiKey ? maskSecret(apiKey) : '(missing)';
+        
+        Logger.info(`OPENAI_BASE_URL: ${result.env.OPENAI_BASE_URL}`);
+        Logger.info(`OPENAI_API_KEY:  ${result.env.OPENAI_API_KEY}`);
+        
         if (!apiKey) {
-          console.log(chalk.red('❌ Missing OPENAI_API_KEY'));
+          result.connectivity = { ok: false, message: 'Missing OPENAI_API_KEY' };
+          Logger.error('❌ Missing OPENAI_API_KEY');
+          if (Logger.isJson) Logger.printJson(result);
           process.exitCode = 1;
           return;
         }
@@ -431,36 +471,118 @@ export async function main() {
           clearTimeout(timer);
           if (!res.ok) {
             const text = await res.text();
-            console.log(chalk.red(`❌ LLM connectivity failed: ${res.status} ${text.slice(0, 200)}`));
+            result.connectivity = { ok: false, message: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+            Logger.error(`❌ LLM connectivity failed: ${result.connectivity.message}`);
+            if (Logger.isJson) Logger.printJson(result);
             process.exitCode = 1;
             return;
           }
-          console.log(chalk.green('✅ LLM connectivity OK (/models)'));
+          result.connectivity = { ok: true, message: 'LLM connectivity OK (/models)' };
+          Logger.success('✅ LLM connectivity OK (/models)');
         } catch (e) {
-          console.log(chalk.red(`❌ LLM connectivity failed: ${(e as Error).message}`));
+          result.connectivity = { ok: false, message: (e as Error).message };
+          Logger.error(`❌ LLM connectivity failed: ${result.connectivity.message}`);
+          if (Logger.isJson) Logger.printJson(result);
           process.exitCode = 1;
         }
       } else if (cfg.llm.provider === 'ollama') {
         const baseUrl = (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434').replace(/\/+$/, '');
-        console.log(`OLLAMA_BASE_URL: ${baseUrl}`);
+        result.env.OLLAMA_BASE_URL = baseUrl;
+        Logger.info(`OLLAMA_BASE_URL: ${baseUrl}`);
         try {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), 10_000);
-          const res = await fetch(`${baseUrl}/api/tags`, { method: 'GET', signal: controller.signal });
+          const res = await fetch(`${baseUrl}/api/tags`, {
+            method: 'GET',
+            signal: controller.signal
+          });
           clearTimeout(timer);
           if (!res.ok) {
             const text = await res.text();
-            console.log(chalk.red(`❌ Ollama connectivity failed: ${res.status} ${text.slice(0, 200)}`));
+            result.connectivity = { ok: false, message: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+            Logger.error(`❌ Ollama connectivity failed: ${result.connectivity.message}`);
+            if (Logger.isJson) Logger.printJson(result);
             process.exitCode = 1;
             return;
           }
-          console.log(chalk.green('✅ Ollama connectivity OK (/api/tags)'));
+          result.connectivity = { ok: true, message: 'Ollama connectivity OK (/api/tags)' };
+          Logger.success('✅ Ollama connectivity OK (/api/tags)');
         } catch (e) {
-          console.log(chalk.red(`❌ Ollama connectivity failed: ${(e as Error).message}`));
+          result.connectivity = { ok: false, message: (e as Error).message };
+          Logger.error(`❌ Ollama connectivity failed: ${result.connectivity.message}`);
+          if (Logger.isJson) Logger.printJson(result);
           process.exitCode = 1;
         }
-      } else if (cfg.llm.provider === 'mock') {
-        console.log(chalk.green('✅ Provider is mock (no external connectivity required)'));
+      }
+
+      if (Logger.isJson && process.exitCode !== 1) {
+        Logger.printJson(result);
+      }
+    });
+
+
+  program
+    .command('logs [runId]')
+    .description('Show run traces and logs')
+    .action(async (runId?: string) => {
+      const { TraceReader } = await import('./agent/runtime/trace-reader');
+      const reader = new TraceReader(process.cwd());
+
+      if (!runId) {
+        // List runs
+        const state = (await fs.pathExists(getConfigPath(process.cwd()).replace('config.json', 'agent/state.json'))) 
+          ? await fs.readJson(getConfigPath(process.cwd()).replace('config.json', 'agent/state.json')) 
+          : null;
+        
+        if (!state?.runs?.length) {
+          Logger.info('No runs found.');
+          if (Logger.isJson) Logger.printJson([]);
+          return;
+        }
+
+        if (Logger.isJson) {
+          Logger.printJson(state.runs);
+        } else {
+          Logger.info(chalk.blue('--- Recent Runs ---'));
+          state.runs.slice(-10).forEach((r: any) => {
+            Logger.info(`- ${r.runId} [${r.status}] (Started: ${r.startedAt})`);
+          });
+          Logger.info(chalk.dim('\nRun `pi-mini logs <runId>` to see details.'));
+        }
+        return;
+      }
+
+      try {
+        const events = await reader.readTrace(runId);
+        if (Logger.isJson) {
+          Logger.printJson(events);
+        } else {
+          Logger.info(chalk.blue(`--- Trace Logs: ${runId} ---`));
+          for (const ev of events) {
+            Logger.info(chalk.yellow(`\n[Turn ${ev.turn}] ${ev.type} @ ${ev.ts}`));
+            if (ev.type === 'prompt_input') {
+              Logger.info(`User Input: ${ev.data.userInput.slice(0, 100)}...`);
+            } else if (ev.type === 'llm_response') {
+              Logger.info(`LLM Response length: ${ev.data.content?.length ?? 0}`);
+            } else if (ev.type === 'decision') {
+              Logger.info(`Decision: ${ev.data.kind}`);
+              if (ev.data.kind === 'tool') {
+                Logger.info(`Tool: ${ev.data.tool.name}`);
+              }
+            } else if (ev.type === 'tool_result') {
+              Logger.info(`Result ok: ${ev.data.ok}`);
+              if (!ev.data.ok) Logger.error(`Error: ${ev.data.error}`);
+            } else if (ev.type === 'error') {
+              Logger.error(`Error: ${ev.data.message}`);
+            } else if (ev.type === 'final') {
+              Logger.success(`Final: ${ev.data.response.slice(0, 200)}...`);
+            }
+          }
+        }
+      } catch (err) {
+        Logger.error(`Failed to read logs: ${(err as Error).message}`);
+        if (Logger.isJson) Logger.printJson({ error: (err as Error).message });
+        process.exitCode = 1;
       }
     });
 
