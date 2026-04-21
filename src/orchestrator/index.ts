@@ -99,7 +99,7 @@ export class Orchestrator {
       
       if (isInteractive) {
         Logger.info(chalk.blue('Agent is designing the prototype based on PRD...'));
-        await runtime.ask(`We just scaffolded the design templates. Please read docs/requirement/01_prd.md (if it exists) and docs/design/06_solution_outline.md, and then generate a high-fidelity web prototype for the main flow based on the PRD. Save the HTML file into ${projectDir}/ (e.g. main-flow.html). Use the robust ---WRITE_FILE:--- boundary protocol to write the file. Use routes and state to make it interactive.`, { silent: Logger.isJson || Logger.isQuiet });
+        await runtime.ask(`We just scaffolded the design templates. Please read docs/requirement/01_prd.md (if it exists) and docs/design/06_solution_outline.md, and then generate a high-fidelity web prototype for the main flow based on the PRD. Save the HTML file into ${projectDir}/main-flow.html. Use the robust ---WRITE_FILE:--- boundary protocol to write the file. Use routes and state to make it interactive.`, { silent: Logger.isJson || Logger.isQuiet });
         await rebuildIndex(projectDir, projectName);
       } else {
         Logger.info(chalk.blue('Generating default prototype...'));

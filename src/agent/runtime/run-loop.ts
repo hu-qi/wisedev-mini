@@ -119,8 +119,9 @@ export class RunLoop {
           return { ok: false, error: '决策解析连续失败超过3次，已中断执行' };
         }
 
-        await input.memory.append('observation', `决策解析失败：${msg}。\n你输出的原始内容为：\n${llmRes.content}\n\n请检查你的输出格式，必须且只能输出一个合法的 JSON 对象，不要附加任何 Markdown 代码块或其他解释文字。`);
-        lastObservation = `决策解析失败：${msg}。\n你输出的原始内容为：\n${llmRes.content}\n\n请检查你的输出格式，必须且只能输出一个合法的 JSON 对象，不要附加任何 Markdown 代码块或其他解释文字。`;
+        const observationStr = `决策解析失败：${msg}。\n你输出的原始内容为：\n${llmRes.content}\n\n请检查你的输出格式，必须且只能输出一个合法的 JSON 对象，不要附加任何 Markdown 代码块或其他解释文字。`;
+        await input.memory.append('observation', observationStr);
+        lastObservation = observationStr;
         await input.trace.append({
           ts: new Date().toISOString(),
           runId: promptInput.run.runId,
@@ -185,6 +186,12 @@ export class RunLoop {
         };
 
         const toolRes = await input.toolManager.execute(parsed.decision.tool.name, parsed.decision.tool.args, ctx);
+        
+        let toolObservationStr = JSON.stringify(toolRes);
+        if (toolObservationStr.length > 8000) {
+           toolObservationStr = toolObservationStr.slice(0, 8000) + '... (truncated)';
+        }
+        
         await input.trace.append({
           ts: new Date().toISOString(),
           runId: promptInput.run.runId,
@@ -205,7 +212,7 @@ export class RunLoop {
           return { ok: false, error: toolRes.error };
         }
 
-        lastObservation = JSON.stringify(toolRes).slice(0, 8000);
+        lastObservation = toolObservationStr;
         await input.memory.append('observation', lastObservation);
         spinner.succeed(`Turn ${turn}/${input.maxTurns} - Tool [${parsed.decision.tool.name}] completed`);
         spinner.start(`Turn ${turn}/${input.maxTurns} - Processing next step...`);

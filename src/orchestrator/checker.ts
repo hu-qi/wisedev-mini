@@ -29,8 +29,8 @@ export class ArtifactChecker {
         if (project.isDirectory()) {
           const projectPath = path.join(protoDir, project.name);
           const files = await fs.readdir(projectPath);
-          // If there's any .html file (like index.html or others), consider prototype exists
-          if (files.some(f => f.endsWith('.html'))) return true;
+          // If there's any .html file other than index.html, consider prototype exists
+          if (files.some(f => f.endsWith('.html') && f !== 'index.html')) return true;
         }
       }
     } catch {
