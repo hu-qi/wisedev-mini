@@ -20,6 +20,7 @@ export type PromptBuildInput = {
     maxTurns: number;
   };
   policy: AgentPolicy;
+  presetContent?: string;
 };
 
 export type RunTraceEvent =

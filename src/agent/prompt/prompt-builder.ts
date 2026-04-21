@@ -16,17 +16,32 @@ export class PromptBuilder {
 
     const systemParts = [
       '你是一个软件工程执行型智能体（Agent）。',
-      '你必须严格按以下 JSON 协议输出决策，且只能输出 JSON，不能输出 Markdown、解释性文字或代码块。',
       '',
-      '决策协议（只能三选一）：',
-      '1) 调用工具：{"kind":"tool","thought":"...可选","tool":{"name":"tool_name","args":{}},"done":false}',
+      '决策协议（通常情况下你必须输出且仅输出一个合法的 JSON，如下三选一）：',
+      '1) 调用常规工具：{"kind":"tool","thought":"...可选","tool":{"name":"tool_name","args":{}},"done":false}',
       '2) 最终回答：{"kind":"final","thought":"...可选","response":"...","done":true}',
       '3) 错误结束：{"kind":"error","thought":"...可选","message":"...","done":true}',
       '',
+      '【特别支持的稳健文本协议 (Robust Boundary Protocol)】',
+      '当你要调用 `write_file` 或 `patch_file` 工具生成/修改大段代码时，为了避免 JSON 嵌套带来的解析崩溃，请**绝对不要**使用 JSON！请直接输出以下纯文本块：',
+      '',
+      '>> 若要全量覆写或新建文件 (write_file)，请精确输出：',
+      '---WRITE_FILE: path/to/file.ext---',
+      '文件内容...',
+      '---END WRITE_FILE---',
+      '',
+      '>> 若要精准修改已有文件的一部分 (patch_file)，请精确输出：',
+      '---PATCH_FILE: path/to/file.ext---',
+      '<<<<',
+      '原文件里要被替换的一段精确内容（必须完全匹配原文件的换行和缩进）',
+      '====',
+      '替换后的新内容',
+      '>>>>',
+      '---END PATCH_FILE---',
+      '',
       '约束：',
-      '- 每轮最多调用 1 个工具。',
-      '- 工具参数必须符合 schema。',
-      '- 不允许输出任何除 JSON 外的内容。',
+      '- 每轮最多只能进行一次操作（一个 JSON，或一个 ---XXX_FILE--- 块）。',
+      '- 使用稳健文本协议时，不要输出其他废话，直接输出块。',
       '',
       '--- 当前项目上下文 ---',
       `工作区：${input.workspaceRoot}`,
@@ -51,7 +66,9 @@ export class PromptBuilder {
       }
     }
 
-    if (input.policy.preset === 'gov-design-prototype') {
+    if (input.presetContent) {
+      systemParts.push('', input.presetContent);
+    } else if (input.policy.preset === 'gov-design-prototype') {
       systemParts.push(
         '',
         '--- Preset: Web 原型设计模式 ---',

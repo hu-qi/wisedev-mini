@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Button Prototype</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* 侧边栏导航 */
+    .sidebar {
+      width: 240px;
+      background: #fff;
+      border-right: 1px solid #e8e8e8;
+      padding: 20px 0;
+    }
+    .sidebar-title {
+      padding: 0 20px 20px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 10px;
+    }
+    .nav-item {
+      padding: 12px 20px;
+      cursor: pointer;
+      color: #666;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-item:hover {
+      background: #f5f5f5;
+      color: #333;
+    }
+    .nav-item.active {
+      background: #e6f7ed;
+      color: #00a854;
+      font-weight: 500;
+      border-right: 3px solid #00a854;
+    }
+    /* 主内容区 */
+    .main-content {
+      flex: 1;
+      padding: 30px;
+    }
+    .page-header {
+      margin-bottom: 30px;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .page-desc {
+      font-size: 14px;
+      color: #999;
+    }
+    /* 按钮展示卡片 */
+    .button-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+    }
+    /* 绿色按钮样式 - 符合 Preset: My Custom Preset */
+    .custom-btn {
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .custom-btn-primary {
+      background: #00a854;
+      color: #fff;
+    }
+    .custom-btn-primary:hover {
+      background: #009150;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 168, 84, 0.3);
+    }
+    .custom-btn-primary:active {
+      background: #007a43;
+      transform: translateY(0);
+    }
+    .custom-btn-secondary {
+      background: #e6f7ed;
+      color: #00a854;
+      border: 1px solid #b8e9c9;
+    }
+    .custom-btn-secondary:hover {
+      background: #d4f0de;
+      border-color: #9ddbb8;
+    }
+    .custom-btn-outline {
+      background: #fff;
+      color: #00a854;
+      border: 1px solid #00a854;
+    }
+    .custom-btn-outline:hover {
+      background: #e6f7ed;
+    }
+    /* 禁用状态 */
+    .custom-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    /* 加载状态 */
+    .custom-btn-loading {
+      position: relative;
+      color: transparent !important;
+    }
+    .custom-btn-loading::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* 按钮尺寸 */
+    .custom-btn-sm {
+      padding: 6px 16px;
+      font-size: 12px;
+    }
+    .custom-btn-lg {
+      padding: 14px 32px;
+      font-size: 16px;
+    }
+    /* 交互反馈区域 */
+    .feedback-area {
+      margin-top: 20px;
+      padding: 16px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      min-height: 60px;
+    }
+    .feedback-item {
+      padding: 8px 12px;
+      background: #fff;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #666;
+      border-left: 3px solid #00a854;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .feedback-time {
+      font-size: 12px;
+      color: #999;
+      margin-left: 8px;
+    }
+    /* 状态标签 */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 4px;
+      margin-right: 8px;
+    }
+    .status-badge-success {
+      background: #e6f7ed;
+      color: #00a854;
+    }
+    .status-badge-info {
+      background: #e6f7ff;
+      color: #1890ff;
+    }
+    /* Mock 数据标注 */
+    .mock-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 11px;
+      background: #fff7e6;
+      color: #fa8c16;
+      border-radius: 3px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ============================================
+    // 路由配置数组 - 使用 routes 配置渲染菜单
+    // ============================================
+    const routes = [
+      {
+        id: 'home',
+        label: '首页',
+        path: '/',
+        icon: '🏠'
+      },
+      {
+        id: 'button-demo',
+        label: '按钮演示',
+        path: '/buttons',
+        icon: '🔘'
+      },
+      {
+        id: 'feedback',
+        label: '交互反馈',
+        path: '/feedback',
+        icon: '💬'
+      }
+    ];
+
+    // ============================================
+    // Mock 数据 - 标注为假设数据
+    // ============================================
+    const mockData = {
+      // 假设的按钮配置数据
+      buttonConfigs: [
+        { type: 'primary', label: '主要按钮', size: 'default' },
+        { type: 'secondary', label: '次要按钮', size: 'default' },
+        { type: 'outline', label: '描边按钮', size: 'default' },
+        { type: 'primary', label: '小按钮', size: 'sm' },
+        { type: 'primary', label: '大按钮', size: 'lg' },
+        { type: 'primary', label: '加载中', loading: true },
+        { type: 'primary', label: '禁用', disabled: true }
+      ],
+      // 假设的反馈记录
+      feedbackLogs: []
+    };
+
+    // ============================================
+    // 绿色按钮组件 - 符合 Preset 规范
+    // ============================================
+    const CustomButton = ({ 
+      type = 'primary', 
+      size = 'default', 
+      children, 
+      loading = false,
+      disabled = false,
+      onClick 
+    }) => {
+      const [isLoading, setIsLoading] = useState(false);
+      const [isClicked, setIsClicked] = useState(false);
+
+      const handleClick = (e) => {
+        if (disabled || loading) return;
+        
+        setIsClicked(true);
+        setTimeout(() => setIsClicked(false), 200);
+        
+        if (onClick) {
+          onClick(e);
+        }
+      };
+
+      const sizeClass = size === 'sm' ? 'custom-btn-sm' : size === 'lg' ? 'custom-btn-lg' : '';
+      const loadingClass = loading || isLoading ? 'custom-btn-loading' : '';
+      const typeClass = `custom-btn-${type}`;
+
+      return (
+        <button 
+          className={`custom-btn ${typeClass} ${sizeClass} ${loadingClass}`}
+          disabled={disabled}
+          onClick={handleClick}
+          style={{
+            transform: isClicked ? 'scale(0.95)' : 'scale(1)'
+          }}
+        >
+          {children}
+        </button>
+      );
+    };
+
+    // ============================================
+    // 首页组件
+    // ============================================
+    const HomePage = ({ onNavigate }) => (
+      <div>
+        <div className="page-header">
+          <h1 className="page-title">欢迎使用 Custom Button 原型</h1>
+          <p className="page-desc">
+            这是一个高保真 Web 原型演示 <span className="mock-badge">Mock 数据</span>
+          </p>
+        </div>
+        
+        <div className="button-card">
+          <div className="card-title">原型说明</div>
+          <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '16px' }}>
+            本原型展示了一个绿色按钮组件系统，包含以下特性：
+          </p>
+          <ul style={{ color: '#666', lineHeight: 2, paddingLeft: '20px' }}>
+            <li>使用 routes 配置数组渲染导航菜单</li>
+            <li>3 个可切换页面，真实点击切换</li>
+            <li>可点击元素具备 hover / cursor 指示</li>
+            <li>交互有可感知反馈（动画、状态变化）</li>
+            <li>符合 Preset 规范：只输出绿色按钮</li>
+          </ul>
+        </div>
+
+        <div className="button-card">
+          <div className="card-title">快速开始</div>
+          <div className="button-group">
+            <CustomButton type="primary" onClick={() => onNavigate('button-demo')}>
+              查看按钮演示
+            </CustomButton>
+            <CustomButton type="secondary" onClick={() => onNavigate('feedback')}>
+              查看交互反馈
+            </CustomButton>
+          </div>
+        </div>
+      </div>
+    );
+
+    // ============================================
+    // 按钮演示页面
+    // ============================================
+    const ButtonDemoPage = ({ onButtonClick }) => {
+      const handleButtonClick = (btnInfo) => {
+        if (onButtonClick) {
+          onButtonClick({
+            action: 'click',
+            button: btnInfo,
+            timestamp: new Date().toLocaleTimeString()
+          });
+        }
+      };
+
+      return (
+        <div>
+          <div className="page-header">
+            <h1 className="page-title">按钮演示</h1>
+            <p className="page-desc">
+              展示不同类型、尺寸、状态的绿色按钮 <span className="mock-badge">Mock 数据</span>
+            </p>
+          </div>
+
+          <div className="button-card">
+            <div className="card-title">按钮类型</div>
+            <div className="button-group">
+              {mockData.buttonConfigs.slice(0, 3).map((config, idx) => (
+                <CustomButton 
+                  key={idx}
+                  type={config.type}
+                  onClick={() => handleButtonClick(config.label)}
+                >
+                  {config.label}
+                </CustomButton>
+              ))}
+            </div>
+          </div>
+
+          <div className="button-card">
+            <div className="card-title">按钮尺寸</div>
+            <div className="button-group">
+              {mockData.buttonConfigs.slice(3, 6).map((config, idx) => (
+                <CustomButton 
+                  key={idx}
+                  type="primary"
+                  size={config.size}
+                  loading={config.loading}
+                  disabled={config.disabled}
+                  onClick={() => handleButtonClick(config.label)}
+                >
+                  {config.label}
+                </CustomButton>
+              ))}
+            </div>
+          </div>
+
+          <div className="button-card">
+            <div className="card-title">禁用状态</div>
+            <div className="button-group">
+              <CustomButton type="primary" disabled>
+                禁用按钮
+              </CustomButton>
+              <CustomButton type="secondary" disabled>
+                禁用按钮
+              </CustomButton>
+              <CustomButton type="outline" disabled>
+                禁用按钮
+              </CustomButton>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ============================================
+    // 交互反馈页面
+    // ============================================
+    const FeedbackPage = ({ feedbackLogs }) => (
+      <div>
+        <div className="page-header">
+          <h1 className="page-title">交互反馈</h1>
+          <p className="page-desc">
+            记录按钮点击等交互行为 <span className="mock-badge">Mock 数据</span>
+          </p>
+        </div>
+
+        <div className="button-card">
+          <div className="card-title">
+            交互记录 
+            <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#999', marginLeft: '8px' }}>
+              共 {feedbackLogs.length} 条
+            </span>
+          </div>
+          
+          {feedbackLogs.length === 0 ? (
+            <div style={{ color: '#999', textAlign: 'center', padding: '40px 0' }}>
+              暂无交互记录，点击按钮后将在此显示
+            </div>
+          ) : (
+            <div className="feedback-area">
+              {feedbackLogs.map((log, idx) => (
+                <div key={idx} className="feedback-item">
+                  <span className="status-badge status-badge-success">{log.action}</span>
+                  {log.button}
+                  <span className="feedback-time">{log.timestamp}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="button-card">
+          <div className="card-title">反馈说明</div>
+          <p style={{ color: '#666', lineHeight: 1.8 }}>
+            本页面实时记录所有按钮点击交互，每次点击都会产生一条新的反馈记录。
+            点击"按钮演示"页面的按钮可产生交互记录。
+          </p>
+        </div>
+      </div>
+    );
+
+    // ============================================
+    // 主应用组件
+    // ============================================
+    const App = () => {
+      const [currentRoute, setCurrentRoute] = useState('home');
+      const [feedbackLogs, setFeedbackLogs] = useState([]);
+
+      const handleNavigate = (routeId) => {
+        setCurrentRoute(routeId);
+      };
+
+      const handleButtonClick = (log) => {
+        setFeedbackLogs(prev => [log, ...prev]);
+      };
+
+      const renderPage = () => {
+        switch (currentRoute) {
+          case 'home':
+            return <HomePage onNavigate={handleNavigate} />;
+          case 'button-demo':
+            return <ButtonDemoPage onButtonClick={handleButtonClick} />;
+          case 'feedback':
+            return <FeedbackPage feedbackLogs={feedbackLogs} />;
+          default:
+            return <HomePage onNavigate={handleNavigate} />;
+        }
+      };
+
+      return (
+        <div className="app-container">
+          {/* 侧边栏导航 - 使用 routes 配置数组渲染 */}
+          <div className="sidebar">
+            <div className="sidebar-title">Custom Button</div>
+            {routes.map(route => (
+              <div 
+                key={route.id}
+                className={`nav-item ${currentRoute === route.id ? 'active' : ''}`}
+                onClick={() => handleNavigate(route.id)}
+              >
+                <span>{route.icon}</span>
+                <span>{route.label}</span>
+              </div>
+            ))}
+          </div>
+          
+          {/* 主内容区 */}
+          <div className="main-content">
+            {renderPage()}
+          </div>
+        </div>
+      );
+    };
+
+    // 渲染应用
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

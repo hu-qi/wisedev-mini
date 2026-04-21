@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 
 export type PiMiniConfig = {
+  presetsDir?: string;
   llm: {
     provider: string;
     model: string;
@@ -11,6 +12,7 @@ export type PiMiniConfig = {
 
 export function defaultConfig(): PiMiniConfig {
   return {
+    presetsDir: '',
     llm: {
       provider: 'openai',
       model: 'gpt-4o',
@@ -37,6 +39,7 @@ export async function loadConfig(workspaceRoot: string): Promise<PiMiniConfig> {
   }
 
   const merged: PiMiniConfig = {
+    presetsDir: fileCfg.presetsDir ?? base.presetsDir,
     llm: {
       provider: fileCfg.llm?.provider ?? base.llm.provider,
       model: fileCfg.llm?.model ?? base.llm.model,

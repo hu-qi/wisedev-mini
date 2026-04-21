@@ -10,7 +10,7 @@ import { DeploymentStage } from './stages/deployment';
 import { createProvider } from './agent/providers';
 import { AgentRuntime } from './agent/runtime/agent-runtime';
 import type { AgentPolicy } from './agent/contracts/tool';
-import { loadConfig, saveConfig, getConfigPath } from './config/config-manager';
+import { loadConfig, saveConfig, getConfigPath, type PiMiniConfig } from './config/config-manager';
 import { Logger } from './utils/logger';
 import { ensureProjectPrototypeDir, getDefaultProjectName, listPrototypes, openPath, rebuildIndex } from './prototype/prototype-manager';
 
@@ -20,7 +20,7 @@ export async function main() {
 
   const safety = { yes: false, dryRun: false, confirmWrite: true, confirmShell: true, preset: '' };
 
-  const makePolicy = (): AgentPolicy => ({
+  const makePolicy = (config: PiMiniConfig): AgentPolicy => ({
     decisionFormat: 'json_only',
     maxToolCallsPerTurn: 1,
     workspaceJail: true,
@@ -30,7 +30,8 @@ export async function main() {
     dryRun: safety.dryRun,
     confirmWrite: safety.confirmWrite,
     confirmShell: safety.confirmShell,
-    preset: safety.preset
+    preset: safety.preset,
+    presetsDir: config.presetsDir
   });
 
   const maskSecret = (s: string): string => {
@@ -68,7 +69,7 @@ export async function main() {
       await orchestrator.init();
       const config = await loadConfig(process.cwd());
       await saveConfig(process.cwd(), config);
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -91,7 +92,7 @@ export async function main() {
       await orchestrator.status();
 
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -129,7 +130,7 @@ export async function main() {
     .option('--mode <mode>', 'Run mode (auto, interactive) [default: auto]')
     .action(async (opts: { provider?: string; model?: string; maxTurns?: string; mode?: string }) => {
       const orchestrator = new Orchestrator();
-      await orchestrator.run({ ...opts, policy: makePolicy() });
+      await orchestrator.run({ ...opts, policy: makePolicy(config) });
     });
 
   program
@@ -189,7 +190,7 @@ export async function main() {
     .option('--max-turns <number>', 'Max turns for this run loop [default: from config]')
     .action(async (name: string, desc: string | undefined, opts: { project?: string; siteMap?: boolean; provider?: string; model?: string; maxTurns?: string }) => {
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       if (!policy.preset) policy.preset = 'design-prototype';
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
@@ -242,7 +243,7 @@ export async function main() {
     .option('--max-turns <number>', 'Max turns for this run loop [default: from config]')
     .action(async (name: string, instruction: string, opts: { project?: string; provider?: string; model?: string; maxTurns?: string }) => {
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       if (!policy.preset) policy.preset = 'design-prototype';
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
@@ -341,7 +342,7 @@ export async function main() {
     .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(opts.provider ?? config.llm.provider),
@@ -368,7 +369,7 @@ export async function main() {
     .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (runId: string | undefined, options: { provider?: string; model?: string; maxTurns?: string }) => {
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(options.provider ?? config.llm.provider),
@@ -414,7 +415,7 @@ export async function main() {
     .description('List installed skills')
     .action(async () => {
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -448,7 +449,7 @@ export async function main() {
     .description('Install a skill from a local directory')
     .action(async (dir: string) => {
       const config = await loadConfig(process.cwd());
-      const policy = makePolicy();
+      const policy = makePolicy(config);
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -484,7 +485,7 @@ export async function main() {
         provider: createProvider(config.llm.provider),
         model: config.llm.model,
         maxTurns: config.llm.maxTurns,
-        policy: makePolicy()
+        policy: makePolicy(config)
       });
       await runtime.init();
 
@@ -551,7 +552,7 @@ export async function main() {
         provider: createProvider(config.llm.provider),
         model: config.llm.model,
         maxTurns: config.llm.maxTurns,
-        policy: makePolicy()
+        policy: makePolicy(config)
       });
       await runtime.init();
       const info = await runtime.getSkillManager().getSkillFiles(name);
@@ -596,7 +597,7 @@ export async function main() {
         provider: createProvider(config.llm.provider),
         model: config.llm.model,
         maxTurns: config.llm.maxTurns,
-        policy: makePolicy()
+        policy: makePolicy(config)
       });
       await runtime.init();
       await runtime.getSkillManager().removeSkill(name);
@@ -613,6 +614,7 @@ export async function main() {
     const config = await loadConfig(process.cwd());
     const payload = {
       file: getConfigPath(process.cwd()),
+      presetsDir: config.presetsDir || '',
       llm: config.llm
     };
     if (Logger.isJson) {
@@ -620,10 +622,11 @@ export async function main() {
       return;
     }
     Logger.info(chalk.blue('--- pi-mini config ---'));
-    Logger.info(`File: ${payload.file}`);
-    Logger.info(`Provider: ${payload.llm.provider}`);
-    Logger.info(`Model:    ${payload.llm.model}`);
-    Logger.info(`MaxTurns: ${payload.llm.maxTurns}`);
+    Logger.info(`File:       ${payload.file}`);
+    Logger.info(`PresetsDir: ${payload.presetsDir}`);
+    Logger.info(`Provider:   ${payload.llm.provider}`);
+    Logger.info(`Model:      ${payload.llm.model}`);
+    Logger.info(`MaxTurns:   ${payload.llm.maxTurns}`);
   });
 
   configCmd
@@ -632,9 +635,11 @@ export async function main() {
     .option('--provider <name>', 'LLM Provider (openai, mock, ollama)')
     .option('--model <name>', 'Model name')
     .option('--max-turns <number>', 'Max turns')
-    .action(async (opts: { provider?: string; model?: string; maxTurns?: string }) => {
+    .option('--presets-dir <path>', 'Absolute or relative path to your custom presets directory')
+    .action(async (opts: { provider?: string; model?: string; maxTurns?: string; presetsDir?: string }) => {
       const current = await loadConfig(process.cwd());
       const next = {
+        presetsDir: opts.presetsDir ?? current.presetsDir,
         llm: {
           provider: opts.provider ?? current.llm.provider,
           model: opts.model ?? current.llm.model,

@@ -33,4 +33,5 @@ export type AgentPolicy = {
   confirmWrite?: boolean;
   confirmShell?: boolean;
   preset?: string;
+  presetsDir?: string;
 };

@@ -10,6 +10,7 @@ import type { TraceWriter } from './trace-writer';
 import { parseAgentDecision } from './decision-parser';
 import type { ChatMessage } from '../contracts/llm';
 import type { SkillManifest } from '../contracts/skill';
+import { resolvePreset } from '../prompt/presets';
 
 export type RunLoopInput = {
   userInput: string;
@@ -50,6 +51,11 @@ export class RunLoop {
     };
     const spinner = input.silent ? noopSpinner : ora('Initializing Agent...').start();
 
+    let presetContent: string | undefined;
+    if (input.policy.preset) {
+      presetContent = await resolvePreset(input.policy.preset, input.policy.presetsDir);
+    }
+
     for (let turn = startTurn; turn <= input.maxTurns; turn += 1) {
       spinner.text = `Turn ${turn}/${input.maxTurns} - Building prompt & context...`;
       const memorySnap = await input.memory.snapshot();
@@ -67,7 +73,8 @@ export class RunLoop {
           turn,
           maxTurns: input.maxTurns
         },
-        policy: input.policy
+        policy: input.policy,
+        presetContent
       };
 
       await input.trace.append({

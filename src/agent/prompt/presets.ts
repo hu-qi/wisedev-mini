@@ -23,3 +23,36 @@ export const govDesignPrototypeSystem = `
 2. 禁止插入自动播放的音频、BGM、音效或任何外部 iframe/水印。
 3. 数据必须符合政企常理，不可随意编造虚假或违规数据。无真实数据时，使用结构化的业务假数据（如“业务单元 A”、“统计项 B”）。
 `;
+
+import fs from 'fs-extra';
+import path from 'path';
+
+export async function resolvePreset(presetName: string, presetsDir?: string): Promise<string | undefined> {
+  if (!presetName) return undefined;
+
+  // 1. Try to load from user's custom presets directory
+  if (presetsDir) {
+    let customPath = path.join(presetsDir, presetName);
+    if (!customPath.endsWith('.md') && !customPath.endsWith('.txt')) {
+      customPath += '.md'; // fallback extension
+    }
+    if (await fs.pathExists(customPath)) {
+      return fs.readFile(customPath, 'utf-8');
+    }
+  }
+
+  // 2. Fallback to built-in presets
+  if (presetName === 'gov-design-prototype') {
+    return [
+      '--- Preset: Web 原型设计模式 ---',
+      designPrototypeSystem,
+      '',
+      '--- Preset: 政企增强 ---',
+      govDesignPrototypeSystem
+    ].join('\n');
+  } else if (presetName === 'design-prototype') {
+    return ['--- Preset: Web 原型设计模式 ---', designPrototypeSystem].join('\n');
+  }
+
+  return undefined;
+}

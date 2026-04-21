@@ -17,7 +17,48 @@ function stripCodeFences(text: string): string {
 
 export function parseAgentDecision(text: string): DecisionParseResult {
   const rawText = text;
-  const cleaned = stripCodeFences(text);
+  
+  // Strip think tags first
+  let cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+  // --- BOUNDARY PROTOCOL PARSING ---
+  const writeFileMatch = cleaned.match(/---WRITE_FILE:\s*([^\n]+?)---\n([\s\S]*?)---END WRITE_FILE---/i);
+  if (writeFileMatch) {
+    const filePath = writeFileMatch[1].trim();
+    const content = writeFileMatch[2]; // keep newlines intact
+    return {
+      ok: true,
+      rawJson: '',
+      decision: {
+        kind: 'tool',
+        tool: {
+          name: 'write_file',
+          args: { path: filePath, content }
+        }
+      }
+    };
+  }
+
+  const patchFileMatch = cleaned.match(/---PATCH_FILE:\s*([^\n]+?)---\n<<<<\n([\s\S]*?)\n====\n([\s\S]*?)\n>>>>\n---END PATCH_FILE---/i);
+  if (patchFileMatch) {
+    const filePath = patchFileMatch[1].trim();
+    const oldStr = patchFileMatch[2];
+    const newStr = patchFileMatch[3];
+    return {
+      ok: true,
+      rawJson: '',
+      decision: {
+        kind: 'tool',
+        tool: {
+          name: 'patch_file',
+          args: { path: filePath, oldStr, newStr }
+        }
+      }
+    };
+  }
+
+  // --- JSON PARSING ---
+  cleaned = stripCodeFences(cleaned);
 
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
