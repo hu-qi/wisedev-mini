@@ -3,6 +3,7 @@ import { StateManager } from './state';
 import { ArtifactChecker } from './checker';
 import { DeliveryState, DeliveryStage, ArtifactStatus } from './types';
 import { Logger } from '../utils/logger';
+import type { AgentPolicy } from '../agent/contracts/tool';
 
 export class Orchestrator {
   public async init(): Promise<void> {
@@ -32,7 +33,7 @@ export class Orchestrator {
     this.displayStatus(state);
   }
 
-  public async run(opts?: { provider?: string; model?: string; maxTurns?: string; mode?: string }): Promise<void> {
+  public async run(opts?: { provider?: string; model?: string; maxTurns?: string; mode?: string; policy?: AgentPolicy }): Promise<void> {
     Logger.info(chalk.blue('Running pi-mini pipeline...'));
 
     // Check status first
@@ -53,7 +54,7 @@ export class Orchestrator {
       provider: createProvider(opts?.provider ?? config.llm.provider),
       model: opts?.model ?? config.llm.model,
       maxTurns: parseInt(opts?.maxTurns ?? String(config.llm.maxTurns), 10),
-      policy: {
+      policy: opts?.policy ?? {
         decisionFormat: 'json_only',
         maxToolCallsPerTurn: 1,
         workspaceJail: true,

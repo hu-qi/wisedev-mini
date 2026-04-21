@@ -17,12 +17,17 @@ export async function main() {
   const config = await loadConfig(process.cwd());
   const program = new Command();
 
+  const safety = { yes: false, dryRun: false };
+
   const makePolicy = (): AgentPolicy => ({
     decisionFormat: 'json_only',
     maxToolCallsPerTurn: 1,
     workspaceJail: true,
     forbidNetwork: true,
-    forbidGitPush: true
+    forbidGitPush: true,
+    requireApproval: true,
+    autoApprove: safety.yes,
+    dryRun: safety.dryRun
   });
 
   const maskSecret = (s: string): string => {
@@ -37,8 +42,13 @@ export async function main() {
     .option('--json', 'Output in JSON format')
     .option('-q, --quiet', 'Quiet mode (suppress non-error output)')
     .option('-v, --verbose', 'Verbose mode')
+    .option('-y, --yes', 'Auto-approve potentially destructive actions (write files / run shell)')
+    .option('--dry-run', 'Do not write files or run shell commands during agent execution')
     .hook('preAction', (thisCommand) => {
-      Logger.setup(thisCommand.opts());
+      const opts = thisCommand.opts();
+      Logger.setup(opts);
+      safety.yes = !!opts.yes;
+      safety.dryRun = !!opts.dryRun;
     });
 
   program
@@ -110,7 +120,7 @@ export async function main() {
     .option('--mode <mode>', 'Run mode (auto, interactive) [default: auto]')
     .action(async (opts: { provider?: string; model?: string; maxTurns?: string; mode?: string }) => {
       const orchestrator = new Orchestrator();
-      await orchestrator.run(opts);
+      await orchestrator.run({ ...opts, policy: makePolicy() });
     });
 
   program
@@ -225,9 +235,11 @@ export async function main() {
       const memoryDir = path.join(process.cwd(), '.pi-mini', 'agent', 'memory');
       if (await fs.pathExists(memoryDir)) {
         await fs.emptyDir(memoryDir);
-        console.log(chalk.green('✅ Memory cleared successfully.'));
+        Logger.success('✅ Memory cleared successfully.');
+        if (Logger.isJson) Logger.printJson({ ok: true, message: 'Memory cleared successfully.' });
       } else {
-        console.log(chalk.yellow('Memory directory not found.'));
+        Logger.warn('Memory directory not found.');
+        if (Logger.isJson) Logger.printJson({ ok: false, error: 'Memory directory not found.' });
       }
     });
 
@@ -248,13 +260,21 @@ export async function main() {
       await runtime.init();
       const skills = runtime.getSkillManager().getActiveSkills();
       if (skills.length === 0) {
-        console.log(chalk.yellow('No skills installed.'));
+        if (Logger.isJson) {
+          Logger.printJson([]);
+        } else {
+          Logger.warn('No skills installed.');
+        }
       } else {
-        console.log(chalk.blue('--- Installed Skills ---'));
-        skills.forEach(s => {
-          console.log(`- ${chalk.green(s.name)} (v${s.version})`);
-          console.log(`  ${s.description}`);
-        });
+        if (Logger.isJson) {
+          Logger.printJson(skills);
+        } else {
+          Logger.info(chalk.blue('--- Installed Skills ---'));
+          skills.forEach((s) => {
+            Logger.info(`- ${chalk.green(s.name)} (v${s.version})`);
+            Logger.info(`  ${s.description}`);
+          });
+        }
       }
     });
 
@@ -276,9 +296,16 @@ export async function main() {
         const path = await import('path');
         const sourcePath = path.resolve(process.cwd(), dir);
         const manifest = await runtime.getSkillManager().installSkill(sourcePath);
-        console.log(chalk.green(`✅ Successfully installed skill: ${manifest.name} (v${manifest.version})`));
+        if (Logger.isJson) {
+          Logger.printJson({ ok: true, manifest });
+        } else {
+          Logger.success(`✅ Successfully installed skill: ${manifest.name} (v${manifest.version})`);
+        }
       } catch (err) {
-        console.error(chalk.red('❌ Failed to install skill:'), (err as Error).message);
+        const msg = (err as Error).message;
+        Logger.error(`❌ Failed to install skill: ${msg}`);
+        if (Logger.isJson) Logger.printJson({ ok: false, error: msg });
+        process.exitCode = 1;
       }
     });
 
@@ -299,7 +326,8 @@ export async function main() {
       const path = await import('path');
       const suitePath = path.resolve(process.cwd(), dir);
       if (!(await fs.pathExists(suitePath))) {
-        console.error(chalk.red(`❌ Directory not found: ${suitePath}`));
+        Logger.error(`❌ Directory not found: ${suitePath}`);
+        if (Logger.isJson) Logger.printJson({ ok: false, error: `Directory not found: ${suitePath}` });
         process.exitCode = 1;
         return;
       }
@@ -307,6 +335,7 @@ export async function main() {
       const entries = await fs.readdir(suitePath);
       let installed = 0;
       let skipped = 0;
+      const installedNames: string[] = [];
 
       for (const entry of entries) {
         const p = path.join(suitePath, entry);
@@ -330,14 +359,19 @@ export async function main() {
         try {
           const manifest = await runtime.getSkillManager().installSkill(p);
           installed += 1;
-          console.log(chalk.green(`✅ Installed: ${manifest.name} (v${manifest.version})`));
+          installedNames.push(manifest.name);
+          if (!Logger.isJson) Logger.success(`✅ Installed: ${manifest.name} (v${manifest.version})`);
         } catch (e) {
           skipped += 1;
-          console.log(chalk.yellow(`Skipped: ${entry} (${(e as Error).message})`));
+          if (!Logger.isJson) Logger.warn(`Skipped: ${entry} (${(e as Error).message})`);
         }
       }
 
-      console.log(chalk.blue(`Done. Installed=${installed}, Skipped=${skipped}`));
+      if (Logger.isJson) {
+        Logger.printJson({ ok: true, installed, skipped, installedNames });
+      } else {
+        Logger.info(chalk.blue(`Done. Installed=${installed}, Skipped=${skipped}`));
+      }
     });
 
   skillCmd
@@ -356,17 +390,26 @@ export async function main() {
       });
       await runtime.init();
       const info = await runtime.getSkillManager().getSkillFiles(name);
-      console.log(chalk.blue('--- Skill ---'));
-      console.log(`Name:        ${info.manifest.name}`);
-      console.log(`Version:     ${info.manifest.version}`);
-      console.log(`Description: ${info.manifest.description}`);
-      if (info.skillJsonPath) console.log(`skill.json:  ${info.skillJsonPath}`);
-      if (info.skillMdPath) console.log(`SKILL.md:    ${info.skillMdPath}`);
+      let mdContent: string | undefined;
       if (opts.content && info.skillMdPath) {
         const maxChars = Math.max(1, parseInt(opts.maxChars ?? '4000', 10) || 4000);
         const md = await fs.readFile(info.skillMdPath, 'utf-8');
-        console.log(chalk.blue('\n--- SKILL.md (truncated) ---'));
-        console.log(md.slice(0, maxChars));
+        mdContent = md.slice(0, maxChars);
+      }
+
+      if (Logger.isJson) {
+        Logger.printJson({ ok: true, ...info, content: mdContent });
+      } else {
+        Logger.info(chalk.blue('--- Skill ---'));
+        Logger.info(`Name:        ${info.manifest.name}`);
+        Logger.info(`Version:     ${info.manifest.version}`);
+        Logger.info(`Description: ${info.manifest.description}`);
+        if (info.skillJsonPath) Logger.info(`skill.json:  ${info.skillJsonPath}`);
+        if (info.skillMdPath) Logger.info(`SKILL.md:    ${info.skillMdPath}`);
+        if (mdContent) {
+          Logger.info(chalk.blue('\n--- SKILL.md (truncated) ---'));
+          Logger.info(mdContent);
+        }
       }
     });
 
@@ -376,7 +419,9 @@ export async function main() {
     .option('--force', 'Skip confirmation')
     .action(async (name: string, opts: { force?: boolean }) => {
       if (!opts.force) {
-        console.log(chalk.yellow('Refusing to remove skill without --force.'));
+        const msg = 'Refusing to remove skill without --force.';
+        Logger.warn(msg);
+        if (Logger.isJson) Logger.printJson({ ok: false, error: msg });
         process.exitCode = 1;
         return;
       }
@@ -390,18 +435,30 @@ export async function main() {
       });
       await runtime.init();
       await runtime.getSkillManager().removeSkill(name);
-      console.log(chalk.green(`✅ Skill removed: ${name}`));
+      if (Logger.isJson) {
+        Logger.printJson({ ok: true, removed: name });
+      } else {
+        Logger.success(`✅ Skill removed: ${name}`);
+      }
     });
 
   const configCmd = program.command('config').description('Manage pi-mini configuration');
 
   configCmd.action(async () => {
     const config = await loadConfig(process.cwd());
-    console.log(chalk.blue('--- pi-mini config ---'));
-    console.log(`File: ${getConfigPath(process.cwd())}`);
-    console.log(`Provider: ${config.llm.provider}`);
-    console.log(`Model:    ${config.llm.model}`);
-    console.log(`MaxTurns: ${config.llm.maxTurns}`);
+    const payload = {
+      file: getConfigPath(process.cwd()),
+      llm: config.llm
+    };
+    if (Logger.isJson) {
+      Logger.printJson(payload);
+      return;
+    }
+    Logger.info(chalk.blue('--- pi-mini config ---'));
+    Logger.info(`File: ${payload.file}`);
+    Logger.info(`Provider: ${payload.llm.provider}`);
+    Logger.info(`Model:    ${payload.llm.model}`);
+    Logger.info(`MaxTurns: ${payload.llm.maxTurns}`);
   });
 
   configCmd
@@ -420,7 +477,11 @@ export async function main() {
         }
       };
       await saveConfig(process.cwd(), next);
-      console.log(chalk.green('✅ Config updated.'));
+      if (Logger.isJson) {
+        Logger.printJson({ ok: true, config: next });
+      } else {
+        Logger.success('✅ Config updated.');
+      }
     });
 
   program
@@ -513,6 +574,12 @@ export async function main() {
           if (Logger.isJson) Logger.printJson(result);
           process.exitCode = 1;
         }
+      } else if (cfg.llm.provider === 'mock') {
+        result.connectivity = { ok: true, message: 'Provider is mock (no external connectivity required)' };
+        Logger.success('✅ Provider is mock (no external connectivity required)');
+      } else {
+        result.connectivity = { ok: true, message: `No connectivity check for provider: ${cfg.llm.provider}` };
+        Logger.warn(`No connectivity check for provider: ${cfg.llm.provider}`);
       }
 
       if (Logger.isJson && process.exitCode !== 1) {
@@ -529,10 +596,9 @@ export async function main() {
       const reader = new TraceReader(process.cwd());
 
       if (!runId) {
-        // List runs
-        const state = (await fs.pathExists(getConfigPath(process.cwd()).replace('config.json', 'agent/state.json'))) 
-          ? await fs.readJson(getConfigPath(process.cwd()).replace('config.json', 'agent/state.json')) 
-          : null;
+        const path = await import('path');
+        const statePath = path.join(process.cwd(), '.pi-mini', 'agent', 'state.json');
+        const state = (await fs.pathExists(statePath)) ? await fs.readJson(statePath) : null;
         
         if (!state?.runs?.length) {
           Logger.info('No runs found.');
@@ -587,9 +653,13 @@ export async function main() {
     });
 
   program.action(() => {
-    console.log(chalk.green('Hello from pi-mini CLI!'));
-    console.log(chalk.blue('TypeScript + Node.js CLI is set up successfully.\n'));
-    console.log('Run `pi-mini --help` to see available commands.');
+    if (Logger.isJson) {
+      Logger.printJson({ ok: true, message: 'pi-mini' });
+      return;
+    }
+    Logger.success('Hello from pi-mini CLI!');
+    Logger.info(chalk.blue('TypeScript + Node.js CLI is set up successfully.\n'));
+    Logger.info('Run `pi-mini --help` to see available commands.');
   });
 
   await program.parseAsync(process.argv);

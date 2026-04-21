@@ -41,9 +41,14 @@ export class RunLoop {
     if (!input.silent) {
       console.log(chalk.blue(`\n[Agent Run] Starting loop (max ${input.maxTurns} turns)`));
     }
-    const spinner = input.silent
-      ? { start: () => spinner, succeed: () => spinner, fail: () => spinner, warn: () => spinner, text: '' } as any
-      : ora('Initializing Agent...').start();
+    const noopSpinner: any = {
+      text: '',
+      start() { return this; },
+      succeed() { return this; },
+      fail() { return this; },
+      warn() { return this; }
+    };
+    const spinner = input.silent ? noopSpinner : ora('Initializing Agent...').start();
 
     for (let turn = startTurn; turn <= input.maxTurns; turn += 1) {
       spinner.text = `Turn ${turn}/${input.maxTurns} - Building prompt & context...`;
@@ -187,4 +192,3 @@ export class RunLoop {
     return { ok: false, error: '超过最大轮次仍未完成' };
   }
 }
-
