@@ -105,6 +105,7 @@ export class AgentRuntime {
 
       return res;
     } catch (e) {
+      console.error('\n[Agent Error]', e);
       const last = state.runs[state.runs.length - 1];
       if (last) {
         last.finishedAt = new Date().toISOString();

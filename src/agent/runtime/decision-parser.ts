@@ -22,10 +22,11 @@ export function parseAgentDecision(text: string): DecisionParseResult {
   let cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
   // --- BOUNDARY PROTOCOL PARSING ---
-  const writeFileMatch = cleaned.match(/---WRITE_FILE:\s*([^\n]+?)---\n([\s\S]*?)\n*---END WRITE_FILE---/i);
+  const writeFileMatch = cleaned.match(/---WRITE_FILE:\s*([^\n]+?)---\n([\s\S]*?)[\s\n]*---END WRITE_FILE---/i);
   if (writeFileMatch) {
     const filePath = writeFileMatch[1].trim();
-    const content = writeFileMatch[2]; // keep newlines intact
+    // Trim right to remove trailing newlines before ---END WRITE_FILE--- but keep internal structure
+    const content = writeFileMatch[2].replace(/\n+$/, '');
     return {
       ok: true,
       rawJson: '',
@@ -39,7 +40,7 @@ export function parseAgentDecision(text: string): DecisionParseResult {
     };
   }
 
-  const patchFileMatch = cleaned.match(/---PATCH_FILE:\s*([^\n]+?)---\n<<<<\n([\s\S]*?)\n====\n([\s\S]*?)\n>>>>\n*---END PATCH_FILE---/i);
+  const patchFileMatch = cleaned.match(/---PATCH_FILE:\s*([^\n]+?)---\n<<<<\n([\s\S]*?)\n====\n([\s\S]*?)\n>>>>[\s\n]*---END PATCH_FILE---/i);
   if (patchFileMatch) {
     const filePath = patchFileMatch[1].trim();
     const oldStr = patchFileMatch[2];

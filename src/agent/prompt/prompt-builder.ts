@@ -25,7 +25,7 @@ export class PromptBuilder {
       '【特别支持的稳健文本协议 (Robust Boundary Protocol)】',
       '当你要调用 `write_file` 或 `patch_file` 工具生成/修改大段代码时，为了避免 JSON 嵌套带来的解析崩溃，请**绝对不要**使用 JSON！请直接输出以下纯文本块：',
       '',
-      '>> 若要全量覆写或新建文件 (write_file)，请精确输出：',
+      '>> 若要全量覆写或新建文件 (write_file)，请精确输出（注意结束标记前面不要有多余的空行）：',
       '---WRITE_FILE: path/to/file.ext---',
       '文件内容...',
       '---END WRITE_FILE---',
