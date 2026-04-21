@@ -32,4 +32,5 @@ export type AgentPolicy = {
   dryRun?: boolean;
   confirmWrite?: boolean;
   confirmShell?: boolean;
+  preset?: string;
 };

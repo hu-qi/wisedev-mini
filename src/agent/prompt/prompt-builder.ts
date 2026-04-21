@@ -1,5 +1,6 @@
 import type { PromptBuildInput } from '../contracts/trace';
 import type { ChatMessage } from '../contracts/llm';
+import { govDesignPrototypeSystem } from './presets';
 
 function jsonStringifySafe(v: unknown, maxLen: number): string {
   const s = JSON.stringify(v, null, 2) ?? '';
@@ -48,6 +49,10 @@ export class PromptBuilder {
       if (skillSystems.length > 0) {
         systemParts.push('', '--- 插件补充指令 (Skills) ---', ...skillSystems);
       }
+    }
+
+    if (input.policy.preset === 'gov-design-prototype') {
+      systemParts.push('', '--- Preset: 政企原型设计模式 ---', govDesignPrototypeSystem);
     }
 
     const system = systemParts.join('\n');

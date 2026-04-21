@@ -17,7 +17,7 @@ export async function main() {
   const config = await loadConfig(process.cwd());
   const program = new Command();
 
-  const safety = { yes: false, dryRun: false, confirmWrite: true, confirmShell: true };
+  const safety = { yes: false, dryRun: false, confirmWrite: true, confirmShell: true, preset: '' };
 
   const makePolicy = (): AgentPolicy => ({
     decisionFormat: 'json_only',
@@ -28,7 +28,8 @@ export async function main() {
     autoApprove: safety.yes,
     dryRun: safety.dryRun,
     confirmWrite: safety.confirmWrite,
-    confirmShell: safety.confirmShell
+    confirmShell: safety.confirmShell,
+    preset: safety.preset
   });
 
   const maskSecret = (s: string): string => {
@@ -47,6 +48,7 @@ export async function main() {
     .option('--dry-run', 'Do not write files or run shell commands during agent execution')
     .option('--no-confirm-write', 'Disable confirmation for write_file tool')
     .option('--no-confirm-shell', 'Disable confirmation for run_shell tool')
+    .option('--preset <name>', 'Load a built-in system prompt preset (e.g. gov-design-prototype)')
     .hook('preAction', (thisCommand) => {
       const opts = thisCommand.opts();
       Logger.setup(opts);
@@ -54,6 +56,7 @@ export async function main() {
       safety.dryRun = !!opts.dryRun;
       if (opts.confirmWrite === false) safety.confirmWrite = false;
       if (opts.confirmShell === false) safety.confirmShell = false;
+      if (opts.preset) safety.preset = opts.preset;
     });
 
   program
