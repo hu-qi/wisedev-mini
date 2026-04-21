@@ -1,62 +1,60 @@
 import fs from 'fs-extra';
 import path from 'path';
+import type { Tool, ToolResult } from '../../contracts/tool';
 import { resolveInWorkspace } from './path-utils';
-import type { Tool, ToolResult, ToolContext } from '../../contracts/tool';
+
+const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', '.pi-mini', 'coverage']);
+
+async function walkDir(dir: string, baseDir: string): Promise<string[]> {
+  const results: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (IGNORED_DIRS.has(entry.name)) continue;
+
+    const fullPath = path.join(dir, entry.name);
+    const relPath = path.relative(baseDir, fullPath);
+
+    if (entry.isDirectory()) {
+      results.push(`${relPath}/`);
+      const sub = await walkDir(fullPath, baseDir);
+      results.push(...sub);
+    } else {
+      results.push(relPath);
+    }
+  }
+  return results;
+}
 
 export const listDirTool: Tool = {
   schema: {
     name: 'list_dir',
-    description: 'List contents of a directory in the workspace. Use this to explore the project structure and find files.',
+    description: '列出指定目录下的文件和文件夹结构，自动忽略 node_modules, .git 等',
     inputSchema: {
       type: 'object',
       properties: {
-        dir_path: {
-          type: 'string',
-          description: 'Relative path to the directory (e.g. ".", "src", "docs")'
-        }
-      },
-      required: ['dir_path']
+        path: { type: 'string', description: '相对工作区的路径，为空则扫描根目录' }
+      }
     }
   },
-
-  async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     try {
-      const relPath = (args.dir_path as string) || '.';
-      const targetPath = resolveInWorkspace(ctx.workspaceRoot, relPath);
+      const p = typeof args.path === 'string' ? args.path : '';
+      const targetDir = resolveInWorkspace(ctx.workspaceRoot, p);
 
-      const stat = await fs.stat(targetPath);
+      if (!(await fs.pathExists(targetDir))) {
+        return { ok: false, name: 'list_dir', error: '目录不存在' };
+      }
+
+      const stat = await fs.stat(targetDir);
       if (!stat.isDirectory()) {
-        return {
-          ok: false,
-          name: this.schema.name,
-          error: `Path is not a directory: ${relPath}`
-        };
+        return { ok: false, name: 'list_dir', error: '目标路径不是目录' };
       }
 
-      const entries = await fs.readdir(targetPath);
-      const result: string[] = [];
-
-      for (const entry of entries) {
-        const entryPath = path.join(targetPath, entry);
-        try {
-          const entryStat = await fs.stat(entryPath);
-          result.push(`${entry}${entryStat.isDirectory() ? '/' : ''}`);
-        } catch (e) {
-          result.push(`${entry} (unreadable)`);
-        }
-      }
-
-      return {
-        ok: true,
-        name: this.schema.name,
-        data: result
-      };
-    } catch (err) {
-      return {
-        ok: false,
-        name: this.schema.name,
-        error: (err as Error).message
-      };
+      const files = await walkDir(targetDir, targetDir);
+      return { ok: true, name: 'list_dir', data: { path: p, files } };
+    } catch (e) {
+      return { ok: false, name: 'list_dir', error: (e as Error).message };
     }
   }
 };

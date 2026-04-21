@@ -7,6 +7,7 @@ import { readFileTool } from '../tools/builtins/read-file';
 import { writeFileTool } from '../tools/builtins/write-file';
 import { runShellTool } from '../tools/builtins/run-shell';
 import { listDirTool } from '../tools/builtins/list-dir';
+import { searchCodeTool } from '../tools/builtins/search-code';
 import { PromptBuilder } from '../prompt/prompt-builder';
 import { MemoryManager } from '../memory/memory-manager';
 import { AgentStateManager } from '../state/state-manager';
@@ -43,6 +44,7 @@ export class AgentRuntime {
     this.toolManager.register(writeFileTool);
     this.toolManager.register(runShellTool);
     this.toolManager.register(listDirTool);
+    this.toolManager.register(searchCodeTool);
   }
 
   public getSkillManager(): SkillManager {
