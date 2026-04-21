@@ -14,7 +14,7 @@ export class ArtifactChecker {
     const hasPrd = this.checkAnyExists(['docs/requirement/01_prd.md', 'docs/requirements.md']);
     const hasDesign = this.checkAnyExists(['docs/design/06_solution_outline.md', 'docs/architecture.md']);
     const hasPrototype = await this.checkPrototypeExists();
-    const hasSourceCode = await this.hasRealSourceFiles(path.join(this.rootDir, 'src'));
+    const hasSourceCode = await this.hasRealSourceFiles(path.join(this.rootDir, 'src')) || await this.hasRealSourceFiles(path.join(this.rootDir, 'components')) || await this.hasRealSourceFiles(path.join(this.rootDir, 'views'));
     const hasTests = await this.checkTestFiles();
 
     return { hasPrd, hasDesign, hasPrototype, hasSourceCode, hasTests };
