@@ -38,14 +38,14 @@ export class ToolManager {
     const confirmWrite = ctx.policy.confirmWrite ?? true;
     const confirmShell = ctx.policy.confirmShell ?? true;
 
-    const sensitive = name === 'write_file' || name === 'run_shell';
+    const sensitive = name === 'write_file' || name === 'patch_file' || name === 'run_shell';
 
     if (sensitive && dryRun) {
       return { ok: true, name, data: { dryRun: true, args } };
     }
 
     let needsConfirm = false;
-    if (name === 'write_file' && confirmWrite && !autoApprove) needsConfirm = true;
+    if ((name === 'write_file' || name === 'patch_file') && confirmWrite && !autoApprove) needsConfirm = true;
     if (name === 'run_shell' && confirmShell && !autoApprove) needsConfirm = true;
 
     if (needsConfirm) {
@@ -57,6 +57,10 @@ export class ToolManager {
         const p = typeof args.path === 'string' ? args.path : '';
         const c = typeof args.content === 'string' ? args.content : '';
         summary = `write_file ${p} (${Buffer.byteLength(c, 'utf-8')} bytes)`;
+      } else if (name === 'patch_file') {
+        const p = typeof args.path === 'string' ? args.path : '';
+        const n = typeof args.newStr === 'string' ? args.newStr : '';
+        summary = `patch_file ${p} (replace with ${Buffer.byteLength(n, 'utf-8')} bytes)`;
       } else if (name === 'run_shell') {
         const command = typeof args.command === 'string' ? args.command : '';
         const cmdArgs = Array.isArray(args.args) ? args.args.filter((x) => typeof x === 'string') : [];

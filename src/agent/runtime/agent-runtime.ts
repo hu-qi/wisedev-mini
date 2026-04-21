@@ -5,6 +5,7 @@ import type { AgentPolicy } from '../contracts/tool';
 import { ToolManager } from '../tools/tool-manager';
 import { readFileTool } from '../tools/builtins/read-file';
 import { writeFileTool } from '../tools/builtins/write-file';
+import { patchFileTool } from '../tools/builtins/patch-file';
 import { runShellTool } from '../tools/builtins/run-shell';
 import { listDirTool } from '../tools/builtins/list-dir';
 import { searchCodeTool } from '../tools/builtins/search-code';
@@ -42,6 +43,7 @@ export class AgentRuntime {
 
     this.toolManager.register(readFileTool);
     this.toolManager.register(writeFileTool);
+    this.toolManager.register(patchFileTool);
     this.toolManager.register(runShellTool);
     this.toolManager.register(listDirTool);
     this.toolManager.register(searchCodeTool);

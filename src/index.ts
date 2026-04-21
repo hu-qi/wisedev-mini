@@ -234,6 +234,61 @@ export async function main() {
     });
 
   prototypeCmd
+    .command('update <name> <instruction>')
+    .description('Update an existing prototype using the agent (maintains context)')
+    .option('--project <name>', 'Project name (defaults to current directory name)')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama) [default: from config]')
+    .option('--model <name>', 'Model name [default: from config]')
+    .option('--max-turns <number>', 'Max turns for this run loop [default: from config]')
+    .action(async (name: string, instruction: string, opts: { project?: string; provider?: string; model?: string; maxTurns?: string }) => {
+      const config = await loadConfig(process.cwd());
+      const policy = makePolicy();
+      if (!policy.preset) policy.preset = 'design-prototype';
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider(opts.provider ?? config.llm.provider),
+        model: opts.model ?? config.llm.model,
+        maxTurns: Math.max(1, Number(opts.maxTurns ?? config.llm.maxTurns) || 8),
+        policy
+      });
+      await runtime.init();
+
+      const projectName = opts.project ?? getDefaultProjectName(process.cwd());
+      const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
+      const targetPath = `${projectDir}/${name}.html`;
+
+      if (!(await fs.pathExists(targetPath))) {
+        const msg = `File not found: ${targetPath}`;
+        Logger.error(msg);
+        if (Logger.isJson) Logger.printJson({ ok: false, error: msg });
+        process.exitCode = 1;
+        return;
+      }
+
+      const prompt = [
+        `请修改已有的 Web 原型文件：${targetPath}`,
+        `你需要先读取该文件内容，然后根据以下指令进行修改（建议使用 search_replace 或 read/write_file）：`,
+        `修改指令：${instruction}`
+      ].join('\n');
+
+      const res = await runtime.ask(prompt, { silent: Logger.isJson || Logger.isQuiet });
+      if (!res.ok) {
+        Logger.error(res.error);
+        if (Logger.isJson) Logger.printJson(res);
+        process.exitCode = 1;
+        return;
+      }
+
+      const indexPath = await rebuildIndex(projectDir, projectName);
+      const payload = { ok: true, project: projectName, name, filePath: targetPath, indexPath };
+      if (Logger.isJson) {
+        Logger.printJson(payload);
+      } else {
+        Logger.success(`✅ Prototype updated: ${targetPath}`);
+      }
+    });
+
+  prototypeCmd
     .command('list')
     .description('List prototypes under docs/prototypes/<project>/')
     .option('--project <name>', 'Project name (defaults to current directory name)')

@@ -84,7 +84,7 @@ export class RunLoop {
         model: input.model,
         messages: built.messages,
         temperature: 0.2,
-        timeoutMs: 60_000
+        timeoutMs: 120_000 // 增加到 120s，增强商用网络波动容忍度
       });
 
       // 追加当前轮的交互到 history 中，供下一轮使用
@@ -104,14 +104,22 @@ export class RunLoop {
       if (!parsed.ok) {
         spinner.fail(`Turn ${turn}/${input.maxTurns} - Decision parse failed: ${parsed.error}`);
         const msg = parsed.error;
-        await input.memory.append('observation', `决策解析失败：${msg}。请检查你的输出格式，确保是合法的 JSON 且没有多余的 Markdown 代码块或文字。`);
-        lastObservation = `决策解析失败：${msg}。请检查你的输出格式，确保是合法的 JSON 且没有多余的 Markdown 代码块或文字。`;
+        
+        // 增加解析错误重试次数保护（避免无限死循环）
+        const parseErrorCount = history.filter(m => m.role === 'user' && m.content.includes('决策解析失败')).length;
+        if (parseErrorCount >= 3) {
+          spinner.fail(`Turn ${turn}/${input.maxTurns} - Exceeded max parse retries`);
+          return { ok: false, error: '决策解析连续失败超过3次，已中断执行' };
+        }
+
+        await input.memory.append('observation', `决策解析失败：${msg}。\n你输出的原始内容为：\n${llmRes.content}\n\n请检查你的输出格式，必须且只能输出一个合法的 JSON 对象，不要附加任何 Markdown 代码块或其他解释文字。`);
+        lastObservation = `决策解析失败：${msg}。\n你输出的原始内容为：\n${llmRes.content}\n\n请检查你的输出格式，必须且只能输出一个合法的 JSON 对象，不要附加任何 Markdown 代码块或其他解释文字。`;
         await input.trace.append({
           ts: new Date().toISOString(),
           runId: promptInput.run.runId,
           turn,
           type: 'error',
-          data: { message: msg }
+          data: { message: msg, raw: llmRes.content }
         });
         spinner.start(`Turn ${turn}/${input.maxTurns} - Retrying due to parse error...`);
         continue;

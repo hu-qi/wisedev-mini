@@ -29,5 +29,5 @@ export type RunTraceEvent =
   | { ts: string; runId: string; turn: number; type: 'decision'; data: AgentDecision }
   | { ts: string; runId: string; turn: number; type: 'tool_result'; data: ToolResult }
   | { ts: string; runId: string; turn: number; type: 'final'; data: { response: string } }
-  | { ts: string; runId: string; turn: number; type: 'error'; data: { message: string } };
+  | { ts: string; runId: string; turn: number; type: 'error'; data: { message: string; raw?: string } };
 
