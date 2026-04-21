@@ -259,6 +259,64 @@ export async function main() {
     });
 
   skillCmd
+    .command('install-suite <dir>')
+    .description('Install all skills found in a suite directory (scan first-level subdirectories)')
+    .action(async (dir: string) => {
+      const config = await loadConfig(process.cwd());
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
+        policy: makePolicy()
+      });
+      await runtime.init();
+
+      const path = await import('path');
+      const suitePath = path.resolve(process.cwd(), dir);
+      if (!(await fs.pathExists(suitePath))) {
+        console.error(chalk.red(`❌ Directory not found: ${suitePath}`));
+        process.exitCode = 1;
+        return;
+      }
+
+      const entries = await fs.readdir(suitePath);
+      let installed = 0;
+      let skipped = 0;
+
+      for (const entry of entries) {
+        const p = path.join(suitePath, entry);
+        let stat: import('fs').Stats;
+        try {
+          stat = await fs.stat(p);
+        } catch {
+          skipped += 1;
+          continue;
+        }
+        if (!stat.isDirectory()) {
+          skipped += 1;
+          continue;
+        }
+        const hasSkillJson = await fs.pathExists(path.join(p, 'skill.json'));
+        const hasSkillMd = await fs.pathExists(path.join(p, 'SKILL.md'));
+        if (!hasSkillJson && !hasSkillMd) {
+          skipped += 1;
+          continue;
+        }
+        try {
+          const manifest = await runtime.getSkillManager().installSkill(p);
+          installed += 1;
+          console.log(chalk.green(`✅ Installed: ${manifest.name} (v${manifest.version})`));
+        } catch (e) {
+          skipped += 1;
+          console.log(chalk.yellow(`Skipped: ${entry} (${(e as Error).message})`));
+        }
+      }
+
+      console.log(chalk.blue(`Done. Installed=${installed}, Skipped=${skipped}`));
+    });
+
+  skillCmd
     .command('show <name>')
     .description('Show skill details and installed file locations')
     .option('--content', 'Print skill markdown content (if available)')
