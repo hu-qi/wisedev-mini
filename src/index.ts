@@ -12,6 +12,7 @@ import { AgentRuntime } from './agent/runtime/agent-runtime';
 import type { AgentPolicy } from './agent/contracts/tool';
 import { loadConfig, saveConfig, getConfigPath } from './config/config-manager';
 import { Logger } from './utils/logger';
+import { ensureProjectPrototypeDir, getDefaultProjectName, listPrototypes, openPath, rebuildIndex } from './prototype/prototype-manager';
 
 export async function main() {
   const config = await loadConfig(process.cwd());
@@ -48,7 +49,7 @@ export async function main() {
     .option('--dry-run', 'Do not write files or run shell commands during agent execution')
     .option('--no-confirm-write', 'Disable confirmation for write_file tool')
     .option('--no-confirm-shell', 'Disable confirmation for run_shell tool')
-    .option('--preset <name>', 'Load a built-in system prompt preset (e.g. gov-design-prototype)')
+    .option('--preset <name>', 'Load a built-in system prompt preset (e.g. design-prototype, gov-design-prototype)')
     .hook('preAction', (thisCommand) => {
       const opts = thisCommand.opts();
       Logger.setup(opts);
@@ -174,6 +175,107 @@ export async function main() {
     .action(async () => {
       const stage = new TestingStage();
       await stage.execute();
+    });
+
+  const prototypeCmd = program.command('prototype').alias('proto').description('Generate and manage web prototypes');
+
+  prototypeCmd
+    .command('new <name> [desc]')
+    .description('Generate a new prototype HTML into docs/prototypes/<project>/ and rebuild index.html')
+    .option('--project <name>', 'Project name (defaults to current directory name)')
+    .option('--site-map', 'Include a Site Map section in the prototype')
+    .option('--provider <name>', 'LLM Provider (openai, mock, ollama) [default: from config]')
+    .option('--model <name>', 'Model name [default: from config]')
+    .option('--max-turns <number>', 'Max turns for this run loop [default: from config]')
+    .action(async (name: string, desc: string | undefined, opts: { project?: string; siteMap?: boolean; provider?: string; model?: string; maxTurns?: string }) => {
+      const config = await loadConfig(process.cwd());
+      const policy = makePolicy();
+      if (!policy.preset) policy.preset = 'design-prototype';
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider(opts.provider ?? config.llm.provider),
+        model: opts.model ?? config.llm.model,
+        maxTurns: Math.max(1, Number(opts.maxTurns ?? config.llm.maxTurns) || 8),
+        policy
+      });
+      await runtime.init();
+
+      const projectName = opts.project ?? getDefaultProjectName(process.cwd());
+      const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
+      const targetPath = `${projectDir}/${name}.html`;
+
+      const prompt = [
+        `请生成一个高保真 Web 原型（单文件 Inline React），并写入到：${targetPath}`,
+        `原型名称：${name}`,
+        desc ? `需求描述：${desc}` : '需求描述：请生成一个可演示的后台模块原型，至少包含列表页和详情页的流转。',
+        opts.siteMap ? '可选项：需要包含页面地图（Site Map）区域。' : '可选项：页面地图（Site Map）不要求，除非你认为必要。',
+        '硬性要求：使用 routes 配置数组渲染菜单/导航，避免手写菜单不一致。',
+        '硬性要求：至少 2-3 个可切换页面/模块，并且能真实点击切换（非 alert 伪交互）。',
+        '硬性要求：可点击元素必须具备 hover / cursor 指示，且交互有可感知反馈。',
+        '注意：如果没有真实数据，请显式标注 Mock 数据与假设。'
+      ].join('\n');
+
+      const res = await runtime.ask(prompt, { silent: Logger.isJson || Logger.isQuiet });
+      if (!res.ok) {
+        Logger.error(res.error);
+        if (Logger.isJson) Logger.printJson(res);
+        process.exitCode = 1;
+        return;
+      }
+
+      const indexPath = await rebuildIndex(projectDir, projectName);
+      const payload = { ok: true, project: projectName, name, filePath: targetPath, indexPath };
+      if (Logger.isJson) {
+        Logger.printJson(payload);
+      } else {
+        Logger.success(`✅ Prototype generated: ${targetPath}`);
+        Logger.info(`Index: ${indexPath}`);
+      }
+    });
+
+  prototypeCmd
+    .command('list')
+    .description('List prototypes under docs/prototypes/<project>/')
+    .option('--project <name>', 'Project name (defaults to current directory name)')
+    .action(async (opts: { project?: string }) => {
+      const projectName = opts.project ?? getDefaultProjectName(process.cwd());
+      const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
+      const items = await listPrototypes(projectDir);
+      if (Logger.isJson) {
+        Logger.printJson(items);
+      } else if (items.length === 0) {
+        Logger.warn('No prototypes found.');
+      } else {
+        Logger.info(chalk.blue(`--- Prototypes (${projectName}) ---`));
+        items.forEach((it) => Logger.info(`- ${it.name}`));
+      }
+    });
+
+  prototypeCmd
+    .command('open [name]')
+    .description('Open the index.html or a specific prototype in browser')
+    .option('--project <name>', 'Project name (defaults to current directory name)')
+    .action(async (name: string | undefined, opts: { project?: string }) => {
+      const projectName = opts.project ?? getDefaultProjectName(process.cwd());
+      const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
+      const indexPath = await rebuildIndex(projectDir, projectName);
+      const target = name ? `${projectDir}/${name}.html` : indexPath;
+      if (!(await fs.pathExists(target))) {
+        const msg = `File not found: ${target}`;
+        Logger.error(msg);
+        if (Logger.isJson) Logger.printJson({ ok: false, error: msg });
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        await openPath(target);
+        if (Logger.isJson) Logger.printJson({ ok: true, opened: target });
+      } catch (e) {
+        const msg = (e as Error).message;
+        Logger.error(msg);
+        if (Logger.isJson) Logger.printJson({ ok: false, error: msg });
+        process.exitCode = 1;
+      }
     });
 
   program

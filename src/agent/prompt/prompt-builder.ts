@@ -1,6 +1,6 @@
 import type { PromptBuildInput } from '../contracts/trace';
 import type { ChatMessage } from '../contracts/llm';
-import { govDesignPrototypeSystem } from './presets';
+import { designPrototypeSystem, govDesignPrototypeSystem } from './presets';
 
 function jsonStringifySafe(v: unknown, maxLen: number): string {
   const s = JSON.stringify(v, null, 2) ?? '';
@@ -52,7 +52,16 @@ export class PromptBuilder {
     }
 
     if (input.policy.preset === 'gov-design-prototype') {
-      systemParts.push('', '--- Preset: 政企原型设计模式 ---', govDesignPrototypeSystem);
+      systemParts.push(
+        '',
+        '--- Preset: Web 原型设计模式 ---',
+        designPrototypeSystem,
+        '',
+        '--- Preset: 政企增强 ---',
+        govDesignPrototypeSystem
+      );
+    } else if (input.policy.preset === 'design-prototype') {
+      systemParts.push('', '--- Preset: Web 原型设计模式 ---', designPrototypeSystem);
     }
 
     const system = systemParts.join('\n');
@@ -86,4 +95,3 @@ export class PromptBuilder {
     return { system, messages };
   }
 }
-
