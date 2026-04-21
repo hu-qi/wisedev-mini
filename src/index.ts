@@ -224,18 +224,19 @@ export async function main() {
     .description('List installed skills')
     .action(async () => {
       const config = await loadConfig(process.cwd());
+      const policy: AgentPolicy = {
+        decisionFormat: 'json_only',
+        maxToolCallsPerTurn: 1,
+        workspaceJail: true,
+        forbidNetwork: true,
+        forbidGitPush: true
+      };
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
         model: config.llm.model,
         maxTurns: config.llm.maxTurns,
-        policy: {
-          decisionFormat: 'json_only',
-          maxToolCallsPerTurn: 1,
-          workspaceJail: true,
-          forbidNetwork: true,
-          forbidGitPush: true
-        }
+        policy
       });
       await runtime.init();
       const skills = runtime.getSkillManager().getActiveSkills();
@@ -255,18 +256,19 @@ export async function main() {
     .description('Install a skill from a local directory')
     .action(async (dir: string) => {
       const config = await loadConfig(process.cwd());
+      const policy: AgentPolicy = {
+        decisionFormat: 'json_only',
+        maxToolCallsPerTurn: 1,
+        workspaceJail: true,
+        forbidNetwork: true,
+        forbidGitPush: true
+      };
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
         model: config.llm.model,
         maxTurns: config.llm.maxTurns,
-        policy: {
-          decisionFormat: 'json_only',
-          maxToolCallsPerTurn: 1,
-          workspaceJail: true,
-          forbidNetwork: true,
-          forbidGitPush: true
-        }
+        policy
       });
       await runtime.init();
       try {
@@ -315,5 +317,5 @@ export async function main() {
     console.log('Run `pi-mini --help` to see available commands.');
   });
 
-    await program.parseAsync(process.argv);
+  await program.parseAsync(process.argv);
 }
