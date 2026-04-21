@@ -5,13 +5,13 @@ import type { Tool, ToolResult } from '../../contracts/tool';
 const execFileAsync = promisify(execFile);
 
 function isAllowed(command: string, args: string[], forbidGitPush: boolean): boolean {
-  const allow = new Set(['npm', 'pnpm', 'yarn', 'node', 'git']);
+  const allow = new Set(['npm', 'pnpm', 'yarn', 'node', 'git', 'ls', 'cat', 'echo']);
   if (!allow.has(command)) return false;
 
   if (command === 'git') {
     const sub = args[0] ?? '';
     if (forbidGitPush && sub === 'push') return false;
-    if (!['status', 'diff', 'log', 'show', 'rev-parse'].includes(sub)) return false;
+    if (!['status', 'diff', 'log', 'show', 'rev-parse', 'add', 'commit'].includes(sub)) return false;
   }
 
   return true;

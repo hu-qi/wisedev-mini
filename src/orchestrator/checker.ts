@@ -14,7 +14,7 @@ export class ArtifactChecker {
     const hasPrd = this.checkAnyExists(['docs/requirement/01_prd.md', 'docs/requirements.md']);
     const hasDesign = this.checkAnyExists(['docs/design/06_solution_outline.md', 'docs/architecture.md']);
     const hasPrototype = await this.checkPrototypeExists();
-    const hasSourceCode = await this.hasTsFiles(path.join(this.rootDir, 'src'));
+    const hasSourceCode = await this.hasRealSourceFiles(path.join(this.rootDir, 'src'));
     const hasTests = await this.checkTestFiles();
 
     return { hasPrd, hasDesign, hasPrototype, hasSourceCode, hasTests };
@@ -48,18 +48,22 @@ export class ArtifactChecker {
     return false;
   }
 
-  private async hasTsFiles(dir: string): Promise<boolean> {
+  private async hasRealSourceFiles(dir: string): Promise<boolean> {
     if (!existsSync(dir)) return false;
     
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          if (await this.hasTsFiles(path.join(dir, entry.name))) return true;
+          // ignore common boilerplate directories that don't indicate real work
+          if (['assets'].includes(entry.name)) continue;
+          if (await this.hasRealSourceFiles(path.join(dir, entry.name))) return true;
         } else if (
-          entry.name.endsWith('.ts') &&
+          (entry.name.endsWith('.ts') || entry.name.endsWith('.vue') || entry.name.endsWith('.tsx') || entry.name.endsWith('.jsx')) &&
           !entry.name.endsWith('.test.ts') &&
-          !entry.name.endsWith('.spec.ts')
+          !entry.name.endsWith('.spec.ts') &&
+          // Ignore standard boilerplate files
+          !['main.ts', 'App.vue', 'style.css', 'vite-env.d.ts', 'HelloWorld.vue'].includes(entry.name)
         ) {
           return true;
         }

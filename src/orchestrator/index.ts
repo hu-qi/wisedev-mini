@@ -59,7 +59,8 @@ export class Orchestrator {
         maxToolCallsPerTurn: 1,
         workspaceJail: true,
         forbidNetwork: true,
-        forbidGitPush: true
+        forbidGitPush: true,
+        presetsDir: config.presetsDir
       }
     });
     await runtime.init();
@@ -92,16 +93,18 @@ export class Orchestrator {
 
     if (!artifacts.hasPrototype) {
       Logger.info(chalk.yellow('\n--- Running Prototype Stage ---'));
+      const { ensureProjectPrototypeDir, rebuildIndex, getDefaultProjectName } = await import('../prototype/prototype-manager');
+      const projectName = getDefaultProjectName(process.cwd());
+      const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
+      
       if (isInteractive) {
         Logger.info(chalk.blue('Agent is designing the prototype based on PRD...'));
-        await runtime.ask('We just scaffolded the design templates. Please read docs/requirement/01_prd.md (if it exists) and docs/design/06_solution_outline.md, and then generate a high-fidelity web prototype for the main flow. Use the prototype tool or write a single HTML file into docs/prototypes/.', { silent: Logger.isJson || Logger.isQuiet });
+        await runtime.ask(`We just scaffolded the design templates. Please read docs/requirement/01_prd.md (if it exists) and docs/design/06_solution_outline.md, and then generate a high-fidelity web prototype for the main flow based on the PRD. Save the HTML file into ${projectDir}/ (e.g. main-flow.html). Use the robust ---WRITE_FILE:--- boundary protocol to write the file. Use routes and state to make it interactive.`, { silent: Logger.isJson || Logger.isQuiet });
+        await rebuildIndex(projectDir, projectName);
       } else {
         Logger.info(chalk.blue('Generating default prototype...'));
-        const { ensureProjectPrototypeDir, rebuildIndex, getDefaultProjectName } = await import('../prototype/prototype-manager');
-        const projectName = getDefaultProjectName(process.cwd());
-        const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
         const targetPath = `${projectDir}/demo.html`;
-        await runtime.ask(`Please generate a basic high-fidelity web prototype (single file HTML) based on the current project context and save it to ${targetPath}. Use routes and state to make it interactive.`, { silent: Logger.isJson || Logger.isQuiet });
+        await runtime.ask(`Please generate a basic high-fidelity web prototype (single file HTML) based on the current project context and save it to ${targetPath}. Use the robust ---WRITE_FILE:--- boundary protocol to write the file. Use routes and state to make it interactive.`, { silent: Logger.isJson || Logger.isQuiet });
         await rebuildIndex(projectDir, projectName);
       }
     }
@@ -114,7 +117,7 @@ export class Orchestrator {
       
       if (isInteractive) {
         Logger.info(chalk.blue('Agent is implementing the frontend code...'));
-        await runtime.ask('We just scaffolded the Vue/React project template. Please read docs/requirement/01_prd.md, docs/design/06_solution_outline.md, and the HTML prototypes in docs/prototypes/. Based on these, implement the actual frontend components and pages in the src/ directory. Ensure you use the existing UI framework setup.', { silent: Logger.isJson || Logger.isQuiet });
+        await runtime.ask('We just scaffolded the Vue/React project template. Please read docs/requirement/01_prd.md, docs/design/06_solution_outline.md, and the HTML prototypes in docs/prototypes/. Based on these, implement the actual frontend components and pages in the src/ directory. You can use tools like npm install to add necessary UI libraries like ant-design-vue or element-plus if needed.', { silent: Logger.isJson || Logger.isQuiet });
       }
     }
 

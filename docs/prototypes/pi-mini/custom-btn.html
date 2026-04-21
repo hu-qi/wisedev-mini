@@ -97,64 +97,103 @@
       gap: 16px;
       align-items: center;
     }
-    /* 绿色按钮样式 - 符合 Preset: My Custom Preset */
-    .custom-btn {
+    /* 绿色主按钮 - 符合 Preset: My Custom Preset */
+    .btn-primary {
+      background: #00a854;
+      color: #fff;
+      border: none;
       padding: 10px 24px;
+      border-radius: 4px;
       font-size: 14px;
       font-weight: 500;
-      border-radius: 6px;
-      border: none;
       cursor: pointer;
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
-      justify-content: center;
       gap: 8px;
     }
-    .custom-btn-primary {
-      background: #00a854;
-      color: #fff;
-    }
-    .custom-btn-primary:hover {
-      background: #009150;
+    .btn-primary:hover {
+      background: #00b360;
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 168, 84, 0.3);
+      box-shadow: 0 4px 12px rgba(0,168,84,0.3);
     }
-    .custom-btn-primary:active {
-      background: #007a43;
+    .btn-primary:active {
+      background: #009650;
       transform: translateY(0);
     }
-    .custom-btn-secondary {
-      background: #e6f7ed;
-      color: #00a854;
-      border: 1px solid #b8e9c9;
+    .btn-primary:disabled {
+      background: #b7eb8f;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
-    .custom-btn-secondary:hover {
-      background: #d4f0de;
-      border-color: #9ddbb8;
-    }
-    .custom-btn-outline {
+    /* 次按钮 */
+    .btn-secondary {
       background: #fff;
       color: #00a854;
       border: 1px solid #00a854;
+      padding: 10px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
-    .custom-btn-outline:hover {
+    .btn-secondary:hover {
+      background: #e6f7ed;
+      border-color: #00b360;
+    }
+    /* 文字按钮 */
+    .btn-text {
+      background: transparent;
+      color: #00a854;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-text:hover {
       background: #e6f7ed;
     }
-    /* 禁用状态 */
-    .custom-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none !important;
+    /* 按钮尺寸变体 */
+    .btn-large {
+      padding: 14px 32px;
+      font-size: 16px;
+    }
+    .btn-small {
+      padding: 6px 16px;
+      font-size: 12px;
+    }
+    /* 状态标签 */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .status-success {
+      background: #e6f7ed;
+      color: #00a854;
+    }
+    .status-info {
+      background: #e6f7ff;
+      color: #1890ff;
+    }
+    /* 交互反馈动画 */
+    @keyframes clickPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+    .btn-clicked {
+      animation: clickPulse 0.15s ease;
     }
     /* 加载状态 */
-    .custom-btn-loading {
-      position: relative;
-      color: transparent !important;
-    }
-    .custom-btn-loading::after {
-      content: '';
-      position: absolute;
+    .loading-spinner {
       width: 16px;
       height: 16px;
       border: 2px solid #fff;
@@ -165,67 +204,43 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    /* 按钮尺寸 */
-    .custom-btn-sm {
-      padding: 6px 16px;
-      font-size: 12px;
+    /* 表格样式 */
+    .demo-table {
+      width: 100%;
+      border-collapse: collapse;
     }
-    .custom-btn-lg {
-      padding: 14px 32px;
-      font-size: 16px;
+    .demo-table th,
+    .demo-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #f0f0f0;
     }
-    /* 交互反馈区域 */
-    .feedback-area {
-      margin-top: 20px;
-      padding: 16px;
-      background: #f9f9f9;
-      border-radius: 6px;
-      min-height: 60px;
-    }
-    .feedback-item {
-      padding: 8px 12px;
-      background: #fff;
-      border-radius: 4px;
-      margin-bottom: 8px;
-      font-size: 13px;
+    .demo-table th {
+      background: #fafafa;
+      font-weight: 500;
       color: #666;
-      border-left: 3px solid #00a854;
-      animation: fadeIn 0.3s ease;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+    .demo-table tr:hover td {
+      background: #f5f5f5;
     }
-    .feedback-time {
-      font-size: 12px;
-      color: #999;
-      margin-left: 8px;
+    /* 反馈消息 */
+    .feedback-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #333;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
     }
-    /* 状态标签 */
-    .status-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      font-size: 12px;
-      border-radius: 4px;
-      margin-right: 8px;
-    }
-    .status-badge-success {
-      background: #e6f7ed;
-      color: #00a854;
-    }
-    .status-badge-info {
-      background: #e6f7ff;
-      color: #1890ff;
-    }
-    /* Mock 数据标注 */
-    .mock-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      font-size: 11px;
-      background: #fff7e6;
-      color: #fa8c16;
-      border-radius: 3px;
-      margin-left: 8px;
+    .feedback-toast.show {
+      transform: translateY(0);
+      opacity: 1;
     }
   </style>
 </head>
@@ -240,295 +255,288 @@
     // ============================================
     const routes = [
       {
-        id: 'home',
-        label: '首页',
-        path: '/',
-        icon: '🏠'
+        path: '/button',
+        label: '按钮组件',
+        icon: '⬛',
+        component: 'ButtonDemo'
       },
       {
-        id: 'button-demo',
-        label: '按钮演示',
-        path: '/buttons',
-        icon: '🔘'
+        path: '/button-group',
+        label: '按钮组',
+        icon: '⬛',
+        component: 'ButtonGroupDemo'
       },
       {
-        id: 'feedback',
-        label: '交互反馈',
-        path: '/feedback',
-        icon: '💬'
+        path: '/button-states',
+        label: '按钮状态',
+        icon: '⬛',
+        component: 'ButtonStatesDemo'
       }
     ];
 
     // ============================================
-    // Mock 数据 - 标注为假设数据
+    // Mock 数据与假设说明
     // ============================================
-    const mockData = {
-      // 假设的按钮配置数据
-      buttonConfigs: [
-        { type: 'primary', label: '主要按钮', size: 'default' },
-        { type: 'secondary', label: '次要按钮', size: 'default' },
-        { type: 'outline', label: '描边按钮', size: 'default' },
-        { type: 'primary', label: '小按钮', size: 'sm' },
-        { type: 'primary', label: '大按钮', size: 'lg' },
-        { type: 'primary', label: '加载中', loading: true },
-        { type: 'primary', label: '禁用', disabled: true }
-      ],
-      // 假设的反馈记录
-      feedbackLogs: []
-    };
+    // 本原型使用以下 Mock 数据：
+    // - 按钮变体数据（primary/secondary/text）
+    // - 按钮尺寸数据（large/default/small）
+    // - 按钮状态数据（normal/loading/disabled）
+    // 假设：所有按钮均为绿色主题（符合 Preset: My Custom Preset）
+    // ============================================
 
-    // ============================================
-    // 绿色按钮组件 - 符合 Preset 规范
-    // ============================================
-    const CustomButton = ({ 
+    // 按钮组件 - 绿色主题
+    const GreenButton = ({ 
+      children, 
       type = 'primary', 
       size = 'default', 
-      children, 
+      disabled = false, 
       loading = false,
-      disabled = false,
-      onClick 
+      onClick,
+      style = {}
     }) => {
-      const [isLoading, setIsLoading] = useState(false);
-      const [isClicked, setIsClicked] = useState(false);
-
+      const [clicked, setClicked] = useState(false);
+      
       const handleClick = (e) => {
         if (disabled || loading) return;
-        
-        setIsClicked(true);
-        setTimeout(() => setIsClicked(false), 200);
-        
-        if (onClick) {
-          onClick(e);
-        }
+        setClicked(true);
+        setTimeout(() => setClicked(false), 150);
+        onClick && onClick(e);
       };
 
-      const sizeClass = size === 'sm' ? 'custom-btn-sm' : size === 'lg' ? 'custom-btn-lg' : '';
-      const loadingClass = loading || isLoading ? 'custom-btn-loading' : '';
-      const typeClass = `custom-btn-${type}`;
+      let btnClass = 'btn-primary';
+      if (type === 'secondary') btnClass = 'btn-secondary';
+      if (type === 'text') btnClass = 'btn-text';
+      if (size === 'large') btnClass += ' btn-large';
+      if (size === 'small') btnClass += ' btn-small';
+      if (clicked) btnClass += ' btn-clicked';
 
       return (
         <button 
-          className={`custom-btn ${typeClass} ${sizeClass} ${loadingClass}`}
+          className={btnClass}
           disabled={disabled}
           onClick={handleClick}
-          style={{
-            transform: isClicked ? 'scale(0.95)' : 'scale(1)'
-          }}
+          style={style}
         >
+          {loading && <span className="loading-spinner"></span>}
           {children}
         </button>
       );
     };
 
-    // ============================================
-    // 首页组件
-    // ============================================
-    const HomePage = ({ onNavigate }) => (
-      <div>
-        <div className="page-header">
-          <h1 className="page-title">欢迎使用 Custom Button 原型</h1>
-          <p className="page-desc">
-            这是一个高保真 Web 原型演示 <span className="mock-badge">Mock 数据</span>
-          </p>
-        </div>
-        
-        <div className="button-card">
-          <div className="card-title">原型说明</div>
-          <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '16px' }}>
-            本原型展示了一个绿色按钮组件系统，包含以下特性：
-          </p>
-          <ul style={{ color: '#666', lineHeight: 2, paddingLeft: '20px' }}>
-            <li>使用 routes 配置数组渲染导航菜单</li>
-            <li>3 个可切换页面，真实点击切换</li>
-            <li>可点击元素具备 hover / cursor 指示</li>
-            <li>交互有可感知反馈（动画、状态变化）</li>
-            <li>符合 Preset 规范：只输出绿色按钮</li>
-          </ul>
-        </div>
-
-        <div className="button-card">
-          <div className="card-title">快速开始</div>
-          <div className="button-group">
-            <CustomButton type="primary" onClick={() => onNavigate('button-demo')}>
-              查看按钮演示
-            </CustomButton>
-            <CustomButton type="secondary" onClick={() => onNavigate('feedback')}>
-              查看交互反馈
-            </CustomButton>
-          </div>
-        </div>
-      </div>
-    );
-
-    // ============================================
-    // 按钮演示页面
-    // ============================================
-    const ButtonDemoPage = ({ onButtonClick }) => {
-      const handleButtonClick = (btnInfo) => {
-        if (onButtonClick) {
-          onButtonClick({
-            action: 'click',
-            button: btnInfo,
-            timestamp: new Date().toLocaleTimeString()
-          });
-        }
+    // 页面1：按钮组件演示
+    const ButtonDemo = ({ onFeedback }) => {
+      const handleClick = (btnName) => {
+        onFeedback(`点击了 ${btnName} 按钮`);
       };
 
       return (
         <div>
           <div className="page-header">
-            <h1 className="page-title">按钮演示</h1>
-            <p className="page-desc">
-              展示不同类型、尺寸、状态的绿色按钮 <span className="mock-badge">Mock 数据</span>
-            </p>
+            <h1 className="page-title">按钮组件 <span className="status-badge status-success">主页面</span></h1>
+            <p className="page-desc">展示绿色主题的各种按钮变体（Mock 数据）</p>
           </div>
 
           <div className="button-card">
-            <div className="card-title">按钮类型</div>
+            <h3 className="card-title">主要按钮类型</h3>
             <div className="button-group">
-              {mockData.buttonConfigs.slice(0, 3).map((config, idx) => (
-                <CustomButton 
-                  key={idx}
-                  type={config.type}
-                  onClick={() => handleButtonClick(config.label)}
-                >
-                  {config.label}
-                </CustomButton>
-              ))}
+              <GreenButton onClick={() => handleClick('主要按钮')}>主要按钮</GreenButton>
+              <GreenButton type="secondary" onClick={() => handleClick('次要按钮')}>次要按钮</GreenButton>
+              <GreenButton type="text" onClick={() => handleClick('文字按钮')}>文字按钮</GreenButton>
             </div>
           </div>
 
           <div className="button-card">
-            <div className="card-title">按钮尺寸</div>
+            <h3 className="card-title">按钮尺寸</h3>
             <div className="button-group">
-              {mockData.buttonConfigs.slice(3, 6).map((config, idx) => (
-                <CustomButton 
-                  key={idx}
-                  type="primary"
-                  size={config.size}
-                  loading={config.loading}
-                  disabled={config.disabled}
-                  onClick={() => handleButtonClick(config.label)}
-                >
-                  {config.label}
-                </CustomButton>
-              ))}
-            </div>
-          </div>
-
-          <div className="button-card">
-            <div className="card-title">禁用状态</div>
-            <div className="button-group">
-              <CustomButton type="primary" disabled>
-                禁用按钮
-              </CustomButton>
-              <CustomButton type="secondary" disabled>
-                禁用按钮
-              </CustomButton>
-              <CustomButton type="outline" disabled>
-                禁用按钮
-              </CustomButton>
+              <GreenButton size="large" onClick={() => handleClick('大按钮')}>大按钮</GreenButton>
+              <GreenButton onClick={() => handleClick('默认按钮')}>默认按钮</GreenButton>
+              <GreenButton size="small" onClick={() => handleClick('小按钮')}>小按钮</GreenButton>
             </div>
           </div>
         </div>
       );
     };
 
-    // ============================================
-    // 交互反馈页面
-    // ============================================
-    const FeedbackPage = ({ feedbackLogs }) => (
-      <div>
-        <div className="page-header">
-          <h1 className="page-title">交互反馈</h1>
-          <p className="page-desc">
-            记录按钮点击等交互行为 <span className="mock-badge">Mock 数据</span>
-          </p>
-        </div>
+    // 页面2：按钮组演示
+    const ButtonGroupDemo = ({ onFeedback }) => {
+      const [selected, setSelected] = useState('option1');
 
-        <div className="button-card">
-          <div className="card-title">
-            交互记录 
-            <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#999', marginLeft: '8px' }}>
-              共 {feedbackLogs.length} 条
-            </span>
-          </div>
-          
-          {feedbackLogs.length === 0 ? (
-            <div style={{ color: '#999', textAlign: 'center', padding: '40px 0' }}>
-              暂无交互记录，点击按钮后将在此显示
-            </div>
-          ) : (
-            <div className="feedback-area">
-              {feedbackLogs.map((log, idx) => (
-                <div key={idx} className="feedback-item">
-                  <span className="status-badge status-badge-success">{log.action}</span>
-                  {log.button}
-                  <span className="feedback-time">{log.timestamp}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      const options = [
+        { id: 'option1', label: '选项一' },
+        { id: 'option2', label: '选项二' },
+        { id: 'option3', label: '选项三' }
+      ];
 
-        <div className="button-card">
-          <div className="card-title">反馈说明</div>
-          <p style={{ color: '#666', lineHeight: 1.8 }}>
-            本页面实时记录所有按钮点击交互，每次点击都会产生一条新的反馈记录。
-            点击"按钮演示"页面的按钮可产生交互记录。
-          </p>
-        </div>
-      </div>
-    );
-
-    // ============================================
-    // 主应用组件
-    // ============================================
-    const App = () => {
-      const [currentRoute, setCurrentRoute] = useState('home');
-      const [feedbackLogs, setFeedbackLogs] = useState([]);
-
-      const handleNavigate = (routeId) => {
-        setCurrentRoute(routeId);
+      const handleSelect = (id) => {
+        setSelected(id);
+        onFeedback(`选中了 ${id}`);
       };
 
-      const handleButtonClick = (log) => {
-        setFeedbackLogs(prev => [log, ...prev]);
+      return (
+        <div>
+          <div className="page-header">
+            <h1 className="page-title">按钮组 <span className="status-badge status-info">组合使用</span></h1>
+            <p className="page-desc">按钮组的交互演示（Mock 数据）</p>
+          </div>
+
+          <div className="button-card">
+            <h3 className="card-title">按钮组选择</h3>
+            <div className="button-group">
+              {options.map(opt => (
+                <GreenButton 
+                  key={opt.id}
+                  type={selected === opt.id ? 'primary' : 'secondary'}
+                  onClick={() => handleSelect(opt.id)}
+                >
+                  {opt.label}
+                </GreenButton>
+              ))}
+            </div>
+            <p style={{ marginTop: 16, color: '#666' }}>
+              当前选中: <strong>{selected}</strong>
+            </p>
+          </div>
+
+          <div className="button-card">
+            <h3 className="card-title">操作按钮组</h3>
+            <div className="button-group">
+              <GreenButton onClick={() => onFeedback('提交成功')}>提交</GreenButton>
+              <GreenButton type="secondary" onClick={() => onFeedback('保存成功')}>保存</GreenButton>
+              <GreenButton type="text" onClick={() => onFeedback('取消操作')}>取消</GreenButton>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // 页面3：按钮状态演示
+    const ButtonStatesDemo = ({ onFeedback }) => {
+      const [loading, setLoading] = useState(false);
+
+      const handleLoading = () => {
+        setLoading(true);
+        setTimeout(() => {
+          setLoading(false);
+          onFeedback('加载完成');
+        }, 2000);
+      };
+
+      return (
+        <div>
+          <div className="page-header">
+            <h1 className="page-title">按钮状态</h1>
+            <p className="page-desc">不同状态下的按钮表现（Mock 数据）</p>
+          </div>
+
+          <div className="button-card">
+            <h3 className="card-title">加载状态</h3>
+            <div className="button-group">
+              <GreenButton loading={loading} onClick={handleLoading}>
+                {loading ? '加载中...' : '点击加载'}
+              </GreenButton>
+              <GreenButton type="secondary" loading={loading}>
+                加载中
+              </GreenButton>
+            </div>
+          </div>
+
+          <div className="button-card">
+            <h3 className="card-title">禁用状态</h3>
+            <div className="button-group">
+              <GreenButton disabled>禁用按钮</GreenButton>
+              <GreenButton type="secondary" disabled>禁用次要</GreenButton>
+              <GreenButton type="text" disabled>禁用文字</GreenButton>
+            </div>
+          </div>
+
+          <div className="button-card">
+            <h3 className="card-title">状态对比表</h3>
+            <table className="demo-table">
+              <thead>
+                <tr>
+                  <th>状态</th>
+                  <th>主要按钮</th>
+                  <th>次要按钮</th>
+                  <th>文字按钮</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>正常</td>
+                  <td><GreenButton>主要</GreenButton></td>
+                  <td><GreenButton type="secondary">次要</GreenButton></td>
+                  <td><GreenButton type="text">文字</GreenButton></td>
+                </tr>
+                <tr>
+                  <td>悬停</td>
+                  <td><GreenButton>悬停查看</GreenButton></td>
+                  <td><GreenButton type="secondary">悬停查看</GreenButton></td>
+                  <td><GreenButton type="text">悬停查看</GreenButton></td>
+                </tr>
+                <tr>
+                  <td>禁用</td>
+                  <td><GreenButton disabled>禁用</GreenButton></td>
+                  <td><GreenButton type="secondary" disabled>禁用</GreenButton></td>
+                  <td><GreenButton type="text" disabled>禁用</GreenButton></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    };
+
+    // 主应用组件
+    const App = () => {
+      const [activePath, setActivePath] = useState(routes[0].path);
+      const [toast, setToast] = useState({ show: false, message: '' });
+
+      const handleFeedback = (message) => {
+        setToast({ show: true, message });
+        setTimeout(() => setToast({ show: false, message: '' }), 2500);
       };
 
       const renderPage = () => {
-        switch (currentRoute) {
-          case 'home':
-            return <HomePage onNavigate={handleNavigate} />;
-          case 'button-demo':
-            return <ButtonDemoPage onButtonClick={handleButtonClick} />;
-          case 'feedback':
-            return <FeedbackPage feedbackLogs={feedbackLogs} />;
+        const route = routes.find(r => r.path === activePath);
+        if (!route) return null;
+
+        switch (route.component) {
+          case 'ButtonDemo':
+            return <ButtonDemo onFeedback={handleFeedback} />;
+          case 'ButtonGroupDemo':
+            return <ButtonGroupDemo onFeedback={handleFeedback} />;
+          case 'ButtonStatesDemo':
+            return <ButtonStatesDemo onFeedback={handleFeedback} />;
           default:
-            return <HomePage onNavigate={handleNavigate} />;
+            return null;
         }
       };
 
       return (
         <div className="app-container">
-          {/* 侧边栏导航 - 使用 routes 配置数组渲染 */}
+          {/* 侧边栏 - 使用 routes 配置渲染 */}
           <div className="sidebar">
             <div className="sidebar-title">Custom Button</div>
             {routes.map(route => (
               <div 
-                key={route.id}
-                className={`nav-item ${currentRoute === route.id ? 'active' : ''}`}
-                onClick={() => handleNavigate(route.id)}
+                key={route.path}
+                className={`nav-item ${activePath === route.path ? 'active' : ''}`}
+                onClick={() => setActivePath(route.path)}
               >
                 <span>{route.icon}</span>
                 <span>{route.label}</span>
               </div>
             ))}
           </div>
-          
+
           {/* 主内容区 */}
           <div className="main-content">
             {renderPage()}
+          </div>
+
+          {/* 反馈 Toast */}
+          <div className={`feedback-toast ${toast.show ? 'show' : ''}`}>
+            {toast.message}
           </div>
         </div>
       );
