@@ -13,10 +13,30 @@ export class ArtifactChecker {
   public async check(): Promise<ArtifactStatus> {
     const hasPrd = this.checkAnyExists(['docs/requirement/01_prd.md', 'docs/requirements.md']);
     const hasDesign = this.checkAnyExists(['docs/design/06_solution_outline.md', 'docs/architecture.md']);
+    const hasPrototype = await this.checkPrototypeExists();
     const hasSourceCode = await this.hasTsFiles(path.join(this.rootDir, 'src'));
     const hasTests = await this.checkTestFiles();
 
-    return { hasPrd, hasDesign, hasSourceCode, hasTests };
+    return { hasPrd, hasDesign, hasPrototype, hasSourceCode, hasTests };
+  }
+
+  private async checkPrototypeExists(): Promise<boolean> {
+    const protoDir = path.join(this.rootDir, 'docs', 'prototypes');
+    if (!existsSync(protoDir)) return false;
+    try {
+      const projects = await fs.readdir(protoDir, { withFileTypes: true });
+      for (const project of projects) {
+        if (project.isDirectory()) {
+          const projectPath = path.join(protoDir, project.name);
+          const files = await fs.readdir(projectPath);
+          // If there's any .html file (like index.html or others), consider prototype exists
+          if (files.some(f => f.endsWith('.html'))) return true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
   }
 
   private checkAnyExists(relativePaths: string[]): boolean {

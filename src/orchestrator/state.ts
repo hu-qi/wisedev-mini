@@ -11,8 +11,9 @@ export const defaultState: DeliveryState = {
   artifacts: {
     hasPrd: false,
     hasDesign: false,
+    hasPrototype: false,
     hasSourceCode: false,
-    hasTests: false,
+    hasTests: false
   },
   lastUpdated: new Date().toISOString(),
 };

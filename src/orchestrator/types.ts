@@ -1,8 +1,9 @@
-export type DeliveryStage = 'init' | 'design' | 'development' | 'testing' | 'deployment' | 'done';
+export type DeliveryStage = 'init' | 'design' | 'prototype' | 'development' | 'testing' | 'deployment' | 'done';
 
 export interface ArtifactStatus {
   hasPrd: boolean;
   hasDesign: boolean;
+  hasPrototype: boolean;
   hasSourceCode: boolean;
   hasTests: boolean;
 }

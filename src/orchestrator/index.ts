@@ -90,11 +90,32 @@ export class Orchestrator {
       }
     }
 
+    if (!artifacts.hasPrototype) {
+      Logger.info(chalk.yellow('\n--- Running Prototype Stage ---'));
+      if (isInteractive) {
+        Logger.info(chalk.blue('Agent is designing the prototype based on PRD...'));
+        await runtime.ask('We just scaffolded the design templates. Please read docs/requirement/01_prd.md (if it exists) and docs/design/06_solution_outline.md, and then generate a high-fidelity web prototype for the main flow. Use the prototype tool or write a single HTML file into docs/prototypes/.', { silent: Logger.isJson || Logger.isQuiet });
+      } else {
+        Logger.info(chalk.blue('Generating default prototype...'));
+        const { ensureProjectPrototypeDir, rebuildIndex, getDefaultProjectName } = await import('../prototype/prototype-manager');
+        const projectName = getDefaultProjectName(process.cwd());
+        const projectDir = await ensureProjectPrototypeDir(process.cwd(), projectName);
+        const targetPath = `${projectDir}/demo.html`;
+        await runtime.ask(`Please generate a basic high-fidelity web prototype (single file HTML) based on the current project context and save it to ${targetPath}. Use routes and state to make it interactive.`, { silent: Logger.isJson || Logger.isQuiet });
+        await rebuildIndex(projectDir, projectName);
+      }
+    }
+
     if (!artifacts.hasSourceCode) {
       Logger.info(chalk.yellow('\n--- Running Development Stage ---'));
       const { DevelopmentStage } = await import('../stages/development');
       const stage = new DevelopmentStage();
       await stage.execute();
+      
+      if (isInteractive) {
+        Logger.info(chalk.blue('Agent is implementing the frontend code...'));
+        await runtime.ask('We just scaffolded the Vue/React project template. Please read docs/requirement/01_prd.md, docs/design/06_solution_outline.md, and the HTML prototypes in docs/prototypes/. Based on these, implement the actual frontend components and pages in the src/ directory. Ensure you use the existing UI framework setup.', { silent: Logger.isJson || Logger.isQuiet });
+      }
     }
 
     if (!artifacts.hasTests) {
@@ -117,6 +138,7 @@ export class Orchestrator {
   private inferStage(artifacts: ArtifactStatus): DeliveryStage {
     if (!artifacts.hasPrd) return 'init';
     if (!artifacts.hasDesign) return 'design';
+    if (!artifacts.hasPrototype) return 'prototype';
     if (!artifacts.hasSourceCode) return 'development';
     if (!artifacts.hasTests) return 'testing';
     return 'deployment';
@@ -128,6 +150,8 @@ export class Orchestrator {
         return 'Create a Product Requirements Document at docs/requirement/01_prd.md';
       case 'design':
         return 'Create a Design Document at docs/design/06_solution_outline.md';
+      case 'prototype':
+        return 'Generate high-fidelity web prototypes based on the PRD and Design';
       case 'development':
         return 'Start implementing features in the src/ directory';
       case 'testing':
@@ -148,6 +172,7 @@ export class Orchestrator {
     console.log('\nArtifacts:');
     console.log(`  PRD:         ${this.formatBoolean(state.artifacts.hasPrd)}`);
     console.log(`  Design:      ${this.formatBoolean(state.artifacts.hasDesign)}`);
+    console.log(`  Prototype:   ${this.formatBoolean(state.artifacts.hasPrototype)}`);
     console.log(`  Source Code: ${this.formatBoolean(state.artifacts.hasSourceCode)}`);
     console.log(`  Tests:       ${this.formatBoolean(state.artifacts.hasTests)}`);
 
