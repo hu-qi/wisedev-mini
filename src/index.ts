@@ -16,6 +16,19 @@ export async function main() {
   const config = await loadConfig(process.cwd());
   const program = new Command();
 
+  const makePolicy = (): AgentPolicy => ({
+    decisionFormat: 'json_only',
+    maxToolCallsPerTurn: 1,
+    workspaceJail: true,
+    forbidNetwork: true,
+    forbidGitPush: true
+  });
+
+  const maskSecret = (s: string): string => {
+    if (s.length <= 12) return '***';
+    return `${s.slice(0, 6)}***${s.slice(-4)}`;
+  };
+
   program
     .name('pi-mini')
     .description('A mini CLI tool')
@@ -29,13 +42,7 @@ export async function main() {
       await orchestrator.init();
       const config = await loadConfig(process.cwd());
       await saveConfig(process.cwd(), config);
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
+      const policy = makePolicy();
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -55,13 +62,7 @@ export async function main() {
       await orchestrator.status();
 
       const config = await loadConfig(process.cwd());
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
+      const policy = makePolicy();
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -146,13 +147,7 @@ export async function main() {
     .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (input: string, opts: { provider?: string; model: string; maxTurns: string }) => {
       const config = await loadConfig(process.cwd());
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
+      const policy = makePolicy();
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(opts.provider ?? config.llm.provider),
@@ -177,13 +172,7 @@ export async function main() {
     .option('--max-turns <number>', `Max turns for this run loop [default: ${config.llm.maxTurns}]`)
     .action(async (runId: string | undefined, options: { provider?: string; model?: string; maxTurns?: string }) => {
       const config = await loadConfig(process.cwd());
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
+      const policy = makePolicy();
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(options.provider ?? config.llm.provider),
@@ -224,13 +213,7 @@ export async function main() {
     .description('List installed skills')
     .action(async () => {
       const config = await loadConfig(process.cwd());
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
+      const policy = makePolicy();
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -256,13 +239,7 @@ export async function main() {
     .description('Install a skill from a local directory')
     .action(async (dir: string) => {
       const config = await loadConfig(process.cwd());
-      const policy: AgentPolicy = {
-        decisionFormat: 'json_only',
-        maxToolCallsPerTurn: 1,
-        workspaceJail: true,
-        forbidNetwork: true,
-        forbidGitPush: true
-      };
+      const policy = makePolicy();
       const runtime = new AgentRuntime({
         workspaceRoot: process.cwd(),
         provider: createProvider(config.llm.provider),
@@ -279,6 +256,59 @@ export async function main() {
       } catch (err) {
         console.error(chalk.red('❌ Failed to install skill:'), (err as Error).message);
       }
+    });
+
+  skillCmd
+    .command('show <name>')
+    .description('Show skill details and installed file locations')
+    .option('--content', 'Print skill markdown content (if available)')
+    .option('--max-chars <number>', 'Max chars of content to print', '4000')
+    .action(async (name: string, opts: { content?: boolean; maxChars?: string }) => {
+      const config = await loadConfig(process.cwd());
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
+        policy: makePolicy()
+      });
+      await runtime.init();
+      const info = await runtime.getSkillManager().getSkillFiles(name);
+      console.log(chalk.blue('--- Skill ---'));
+      console.log(`Name:        ${info.manifest.name}`);
+      console.log(`Version:     ${info.manifest.version}`);
+      console.log(`Description: ${info.manifest.description}`);
+      if (info.skillJsonPath) console.log(`skill.json:  ${info.skillJsonPath}`);
+      if (info.skillMdPath) console.log(`SKILL.md:    ${info.skillMdPath}`);
+      if (opts.content && info.skillMdPath) {
+        const maxChars = Math.max(1, parseInt(opts.maxChars ?? '4000', 10) || 4000);
+        const md = await fs.readFile(info.skillMdPath, 'utf-8');
+        console.log(chalk.blue('\n--- SKILL.md (truncated) ---'));
+        console.log(md.slice(0, maxChars));
+      }
+    });
+
+  skillCmd
+    .command('remove <name>')
+    .description('Remove an installed skill')
+    .option('--force', 'Skip confirmation')
+    .action(async (name: string, opts: { force?: boolean }) => {
+      if (!opts.force) {
+        console.log(chalk.yellow('Refusing to remove skill without --force.'));
+        process.exitCode = 1;
+        return;
+      }
+      const config = await loadConfig(process.cwd());
+      const runtime = new AgentRuntime({
+        workspaceRoot: process.cwd(),
+        provider: createProvider(config.llm.provider),
+        model: config.llm.model,
+        maxTurns: config.llm.maxTurns,
+        policy: makePolicy()
+      });
+      await runtime.init();
+      await runtime.getSkillManager().removeSkill(name);
+      console.log(chalk.green(`✅ Skill removed: ${name}`));
     });
 
   const configCmd = program.command('config').description('Manage pi-mini configuration');
@@ -309,6 +339,71 @@ export async function main() {
       };
       await saveConfig(process.cwd(), next);
       console.log(chalk.green('✅ Config updated.'));
+    });
+
+  program
+    .command('doctor')
+    .description('Check environment and LLM connectivity')
+    .action(async () => {
+      const cfg = await loadConfig(process.cwd());
+      console.log(chalk.blue('--- pi-mini doctor ---'));
+      console.log(`Config:   ${getConfigPath(process.cwd())}`);
+      console.log(`Provider: ${cfg.llm.provider}`);
+      console.log(`Model:    ${cfg.llm.model}`);
+      console.log(`MaxTurns: ${cfg.llm.maxTurns}`);
+
+      if (cfg.llm.provider === 'openai') {
+        const apiKey = process.env.OPENAI_API_KEY ?? '';
+        const baseUrl = (process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1').replace(/\/+$/, '');
+        console.log(`OPENAI_BASE_URL: ${baseUrl}`);
+        console.log(`OPENAI_API_KEY:  ${apiKey ? maskSecret(apiKey) : '(missing)'}`);
+        if (!apiKey) {
+          console.log(chalk.red('❌ Missing OPENAI_API_KEY'));
+          process.exitCode = 1;
+          return;
+        }
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(`${baseUrl}/models`, {
+            method: 'GET',
+            signal: controller.signal,
+            headers: { Authorization: `Bearer ${apiKey}` }
+          });
+          clearTimeout(timer);
+          if (!res.ok) {
+            const text = await res.text();
+            console.log(chalk.red(`❌ LLM connectivity failed: ${res.status} ${text.slice(0, 200)}`));
+            process.exitCode = 1;
+            return;
+          }
+          console.log(chalk.green('✅ LLM connectivity OK (/models)'));
+        } catch (e) {
+          console.log(chalk.red(`❌ LLM connectivity failed: ${(e as Error).message}`));
+          process.exitCode = 1;
+        }
+      } else if (cfg.llm.provider === 'ollama') {
+        const baseUrl = (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434').replace(/\/+$/, '');
+        console.log(`OLLAMA_BASE_URL: ${baseUrl}`);
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(`${baseUrl}/api/tags`, { method: 'GET', signal: controller.signal });
+          clearTimeout(timer);
+          if (!res.ok) {
+            const text = await res.text();
+            console.log(chalk.red(`❌ Ollama connectivity failed: ${res.status} ${text.slice(0, 200)}`));
+            process.exitCode = 1;
+            return;
+          }
+          console.log(chalk.green('✅ Ollama connectivity OK (/api/tags)'));
+        } catch (e) {
+          console.log(chalk.red(`❌ Ollama connectivity failed: ${(e as Error).message}`));
+          process.exitCode = 1;
+        }
+      } else if (cfg.llm.provider === 'mock') {
+        console.log(chalk.green('✅ Provider is mock (no external connectivity required)'));
+      }
     });
 
   program.action(() => {

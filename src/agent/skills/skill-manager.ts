@@ -10,6 +10,10 @@ export class SkillManager {
     this.skillsDir = path.join(baseDir, 'skills');
   }
 
+  public getSkillsDir(): string {
+    return this.skillsDir;
+  }
+
   public async init(): Promise<void> {
     await fs.ensureDir(this.skillsDir);
   }
@@ -74,6 +78,31 @@ export class SkillManager {
 
   public getActiveSkills(): SkillManifest[] {
     return this.activeSkills;
+  }
+
+  public async removeSkill(name: string): Promise<void> {
+    const targetDir = path.join(this.skillsDir, name);
+    if (!(await fs.pathExists(targetDir))) {
+      throw new Error(`Skill not found: ${name}`);
+    }
+    await fs.remove(targetDir);
+    await this.loadAll();
+  }
+
+  public async getSkillFiles(name: string): Promise<{ manifest: SkillManifest; skillJsonPath?: string; skillMdPath?: string }> {
+    await this.loadAll();
+    const found = this.activeSkills.find((s) => s.name === name);
+    if (!found) {
+      throw new Error(`Skill not found: ${name}`);
+    }
+    const dir = path.join(this.skillsDir, name);
+    const skillJsonPath = path.join(dir, 'skill.json');
+    const skillMdPath = path.join(dir, 'SKILL.md');
+    return {
+      manifest: found,
+      skillJsonPath: (await fs.pathExists(skillJsonPath)) ? skillJsonPath : undefined,
+      skillMdPath: (await fs.pathExists(skillMdPath)) ? skillMdPath : undefined
+    };
   }
 
   public async installSkill(sourceDir: string): Promise<SkillManifest> {
