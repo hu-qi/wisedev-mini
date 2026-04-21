@@ -178,6 +178,18 @@ export class RunLoop {
           data: toolRes
         });
 
+        if (!toolRes.ok && typeof toolRes.error === 'string' && toolRes.error.startsWith('USER_REJECTED:')) {
+          spinner.fail(`Turn ${turn}/${input.maxTurns} - User rejected tool execution`);
+          await input.trace.append({
+            ts: new Date().toISOString(),
+            runId: promptInput.run.runId,
+            turn,
+            type: 'error',
+            data: { message: toolRes.error }
+          });
+          return { ok: false, error: toolRes.error };
+        }
+
         lastObservation = JSON.stringify(toolRes).slice(0, 8000);
         await input.memory.append('observation', lastObservation);
         spinner.succeed(`Turn ${turn}/${input.maxTurns} - Tool [${parsed.decision.tool.name}] completed`);

@@ -28,7 +28,8 @@ export type AgentPolicy = {
   workspaceJail: boolean;
   forbidNetwork: boolean;
   forbidGitPush: boolean;
-  requireApproval?: boolean;
   autoApprove?: boolean;
   dryRun?: boolean;
+  confirmWrite?: boolean;
+  confirmShell?: boolean;
 };

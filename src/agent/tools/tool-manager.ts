@@ -33,18 +33,24 @@ export class ToolManager {
     const validated = validateArgs(tool.schema.inputSchema, args);
     if (!validated.ok) return { ok: false, name, error: validated.error };
 
-    const requireApproval = ctx.policy.requireApproval ?? false;
     const autoApprove = ctx.policy.autoApprove ?? false;
     const dryRun = ctx.policy.dryRun ?? false;
+    const confirmWrite = ctx.policy.confirmWrite ?? true;
+    const confirmShell = ctx.policy.confirmShell ?? true;
+
     const sensitive = name === 'write_file' || name === 'run_shell';
 
     if (sensitive && dryRun) {
       return { ok: true, name, data: { dryRun: true, args } };
     }
 
-    if (sensitive && requireApproval && !autoApprove) {
+    let needsConfirm = false;
+    if (name === 'write_file' && confirmWrite && !autoApprove) needsConfirm = true;
+    if (name === 'run_shell' && confirmShell && !autoApprove) needsConfirm = true;
+
+    if (needsConfirm) {
       if (!process.stdin.isTTY) {
-        return { ok: false, name, error: '需要交互确认，请使用 --yes 或在交互终端运行' };
+        return { ok: false, name, error: 'USER_REJECTED: 需要交互确认，请使用 --yes 或在交互终端运行' };
       }
       let summary = name;
       if (name === 'write_file') {
@@ -59,7 +65,7 @@ export class ToolManager {
 
       const ok = await this.confirm(`Approve tool execution: ${summary} ? (y/N) `);
       if (!ok) {
-        return { ok: false, name, error: '用户拒绝执行' };
+        return { ok: false, name, error: 'USER_REJECTED: 用户拒绝执行' };
       }
     }
 
