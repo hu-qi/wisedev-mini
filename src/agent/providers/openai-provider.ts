@@ -22,7 +22,7 @@ export class OpenAIProvider implements LLMProvider {
 
     while (attempt < maxRetries) {
       const controller = new AbortController();
-      const timeoutMs = req.timeoutMs ?? 120_000; // Increased default timeout
+      const timeoutMs = req.timeoutMs ?? 300_000; // 提升超时到 5 分钟
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
@@ -63,7 +63,7 @@ export class OpenAIProvider implements LLMProvider {
         };
       } catch (err: any) {
         if (err.name === 'AbortError') {
-          throw new Error(`OpenAI 请求超时 (${timeoutMs}ms)`);
+          err = new Error(`OpenAI 请求超时 (${timeoutMs}ms)`);
         }
         
         attempt++;

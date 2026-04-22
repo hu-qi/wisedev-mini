@@ -78,11 +78,12 @@ export function parseAgentDecision(text: string): DecisionParseResult {
     }
     return { ok: true, decision: obj, rawJson: candidate };
   } catch (err1) {
-    // 2. 如果失败，尝试替换控制字符（特别是换行符）
-    const escaped = candidate
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r')
-      .replace(/\t/g, '\\t');
+    // 2. 如果失败，尝试替换控制字符（特别是值中的换行符）
+    let escaped = candidate;
+    // 使用正则替换 JSON 字符串值中的换行符，而不是替换整个 candidate 中的换行符
+    escaped = escaped.replace(/("[\s\S]*?")/g, (match) => {
+        return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+    });
     try {
       const obj = JSON.parse(escaped) as AgentDecision;
       if (!obj || typeof obj !== 'object' || !('kind' in obj)) {
